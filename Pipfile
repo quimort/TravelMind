@@ -6,11 +6,15 @@ name = "pypi"
 [packages]
 pyspark = "==3.5.6"
 requests = "==2.32.3"
+pandas = "==2.3.0"
+openpyxl = "*"
 
 [dev-packages]
 pyspark = "==3.5.6"
 requests = "==2.32.3"
 ipykernel = "*"
+pandas = "==2.3.0"
+openpyxl = "*"
 
 [requires]
 python_version = "3.11.5"
