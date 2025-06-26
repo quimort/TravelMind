@@ -20,9 +20,18 @@ def create_context() -> SparkSession:
         .config("spark.sql.catalog.spark_catalog.warehouse", "../../data/warehouse") \
         .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
         .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3") \
+        .config("spark.driver.memory", "4g") \
+        .config("spark.executor.memory", "2g") \
         .getOrCreate()
     
     return spark
+
+def overwrite_iceberg_table(spark, df, db_name, table_name):
+    # Fully qualify the catalog
+    spark.sql(f"CREATE NAMESPACE IF NOT EXISTS spark_catalog.{db_name}")
+    df.writeTo(f"spark_catalog.{db_name}.{table_name}") \
+      .using("iceberg") \
+      .createOrReplace()
 
 
 def get_api_endpoint_excel(spark:SparkSession,path:str,filter:str = None) -> DataFrame:
@@ -79,13 +88,6 @@ def get_api_endpoint_data(spark: SparkSession, path: str, filter: str = None) ->
     except Exception as e:
         raise ValueError(f"Error al convertir a Spark DataFrame: {e}")
 
-
-
-def overwrite_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
-
-    spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
-    # Guardar tabla Iceberg
-    df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").createOrReplace()
 
 def append_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
 

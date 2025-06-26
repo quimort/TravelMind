@@ -1,0 +1,108 @@
+{
+  "format-version" : 2,
+  "table-uuid" : "03e38549-62bc-4a19-bcac-7c1e27099d75",
+  "location" : "c:\\Users\\joaqu\\OneDrive\\Documents\\AAmaster_UPC\\TFM\\TravelMind\\POC\\landing\\data\\warehouse/landing/turismo_Provincia",
+  "last-sequence-number" : 1,
+  "last-updated-ms" : 1750886038308,
+  "last-column-id" : 9,
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "AÑO",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "MES",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "CCAA_ORIGEN",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 4,
+      "name" : "PROVINCIA_ORIGEN",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 5,
+      "name" : "CCAA_DESTINO",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 6,
+      "name" : "PROVINCIA_DESTINO",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 7,
+      "name" : "TURISTAS",
+      "required" : false,
+      "type" : "double"
+    }, {
+      "id" : 8,
+      "name" : "PERNOCTACIONES",
+      "required" : false,
+      "type" : "double"
+    }, {
+      "id" : 9,
+      "name" : "ESTANCIA_MEDIA",
+      "required" : false,
+      "type" : "double"
+    } ]
+  } ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "owner" : "joaqu",
+    "write.parquet.compression-codec" : "zstd"
+  },
+  "current-snapshot-id" : 6295038012687740040,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 6295038012687740040,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "sequence-number" : 1,
+    "snapshot-id" : 6295038012687740040,
+    "timestamp-ms" : 1750886038308,
+    "summary" : {
+      "operation" : "overwrite",
+      "spark.app.id" : "local-1750885995712",
+      "added-data-files" : "8",
+      "added-records" : "178795",
+      "added-files-size" : "1335323",
+      "changed-partition-count" : "1",
+      "total-records" : "178795",
+      "total-files-size" : "1335323",
+      "total-data-files" : "8",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "c:/Users/joaqu/OneDrive/Documents/AAmaster_UPC/TFM/TravelMind/POC/landing/data/warehouse/landing/turismo_Provincia/metadata/snap-6295038012687740040-1-5e79bb9c-d046-46b2-89f5-aabca052a725.avro",
+    "schema-id" : 0
+  } ],
+  "statistics" : [ ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1750886038308,
+    "snapshot-id" : 6295038012687740040
+  } ],
+  "metadata-log" : [ ]
+}

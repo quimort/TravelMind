@@ -9,21 +9,13 @@ import sys
 from io import BytesIO, StringIO
 
 def create_context() -> SparkSession:
-
-    # Usa el mismo intérprete que el kernel del notebook
-    os.environ["PYSPARK_PYTHON"] = sys.executable
-    os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
-    spark = SparkSession.builder\
-        .appName("IcebergWritedata") \
-        .config("spark.sql.catalog.spark_catalog", "org.apache.iceberg.spark.SparkSessionCatalog") \
-        .config("spark.sql.catalog.spark_catalog.type", "hadoop") \
-        .config("spark.sql.catalog.spark_catalog.warehouse", "../../data/warehouse") \
-        .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
-        .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3") \
+    return (
+        SparkSession.builder
+        .appName("TrustedCSVLoad")
+        .config("spark.master", "local[*]")        # or your cluster master
+        .config("spark.driver.memory", "2g")       # enough for CSV
         .getOrCreate()
-    
-    return spark
-
+    )
 
 def get_api_endpoint_excel(spark:SparkSession,path:str,filter:str = None) -> DataFrame:
 
