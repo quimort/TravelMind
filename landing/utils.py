@@ -6,6 +6,10 @@ from io import BytesIO
 import pandas as pd
 import os
 import sys
+<<<<<<< HEAD
+=======
+from io import BytesIO, StringIO
+>>>>>>> branch-Joaquim
 
 def create_context() -> SparkSession:
 
@@ -19,10 +23,25 @@ def create_context() -> SparkSession:
         .config("spark.sql.catalog.spark_catalog.warehouse", "../data/warehouse") \
         .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
         .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3") \
+<<<<<<< HEAD
+=======
+        .config("spark.driver.memory", "4g") \
+        .config("spark.executor.memory", "2g") \
+>>>>>>> branch-Joaquim
         .getOrCreate()
     
     return spark
 
+<<<<<<< HEAD
+=======
+def overwrite_iceberg_table(spark, df, db_name, table_name):
+    # Fully qualify the catalog
+    spark.sql(f"CREATE NAMESPACE IF NOT EXISTS spark_catalog.{db_name}")
+    df.writeTo(f"spark_catalog.{db_name}.{table_name}") \
+      .using("iceberg") \
+      .createOrReplace()
+
+>>>>>>> branch-Joaquim
 
 def get_api_endpoint_excel(spark:SparkSession,path:str,filter:str = None) -> DataFrame:
 
@@ -43,11 +62,49 @@ def get_api_endpoint_excel(spark:SparkSession,path:str,filter:str = None) -> Dat
     else:
         print(f"Error {response.status_code}: no se pudo obtener el archivo.")
 
+<<<<<<< HEAD
 def overwrite_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
 
     spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
     # Guardar tabla Iceberg
     df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").createOrReplace()
+=======
+def get_api_endpoint_data(spark: SparkSession, path: str, filter: str = None) -> 'DataFrame':
+
+    # Construir URL
+    url = f"{path}?{filter}" if filter else path
+    response = requests.get(url)
+
+    # Verificar éxito
+    if response.status_code != 200:
+        raise Exception(f"Error {response.status_code}: no se pudo obtener los datos. Detalles: {response.text}")
+
+    # Decodificar como texto con encoding adecuado
+    try:
+        text = response.content.decode('latin-1')  # Asume encoding ISO-8859-1 para caracteres acentuados
+    except Exception as e:
+        raise ValueError(f"Error al decodificar contenido: {e}")
+
+    # Leer CSV con Pandas
+    try:
+        df_pandas = pd.read_csv(
+            StringIO(text),
+            sep=';',              # separador punto y coma
+            decimal=',',          # coma como decimal
+            encoding='latin-1',   # asegurar lectura de caracteres especiales
+            parse_dates=False     # desactivar parse automático de fechas
+        )
+    except Exception as e:
+        raise ValueError(f"Error al leer CSV: {e}")
+
+    # Convertir a Spark DataFrame
+    try:
+        df_spark = spark.createDataFrame(df_pandas)
+        return df_spark
+    except Exception as e:
+        raise ValueError(f"Error al convertir a Spark DataFrame: {e}")
+
+>>>>>>> branch-Joaquim
 
 def append_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
 
@@ -77,7 +134,10 @@ def merge_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:s
     else:
         overwrite_iceberg_table(spark,df,db_name,table_name)
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> branch-Joaquim
 def read_iceberg_table(spark:SparkSession,db_name:str,table_name:str)-> DataFrame:
 
     df = spark.read.table(f"spark_catalog.{db_name}.{table_name}")
