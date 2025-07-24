@@ -50,7 +50,51 @@ TravelMind is a data engineering project focused on ingesting, processing, and e
 
 ## How to Run
 
-1. Install dependencies using Pipenv:
-   ```sh
-   pipenv install
+### 1. Levantar la arquitectura Dockerizada
+
+Asegúrate de tener [Docker](https://www.docker.com/) y [Docker Compose](https://docs.docker.com/compose/) instalados.
+
+```sh
+docker-compose up -d
+```
+
+Esto levantará los siguientes servicios:
+- **MinIO** (almacenamiento S3 para tablas Iceberg)
+  - UI: [http://localhost:9001](http://localhost:9001) (usuario: `minio`, password: `minio123`)
+- **Spark Master** (cluster de procesamiento)
+  - UI: [http://localhost:8080](http://localhost:8080)
+- **Airflow** (orquestación de pipelines)
+  - UI: [http://localhost:8081](http://localhost:8081) (usuario: `airflow`, password: `airflow` por defecto)
+- **Postgres** (backend de Airflow)
+
+### 2. Inicializar Airflow
+
+La primera vez, inicializa la base de datos y crea el usuario admin:
+
+```sh
+docker-compose exec airflow-webserver airflow db init
+docker-compose exec airflow-webserver airflow users create \
+    --username airflow \
+    --password airflow \
+    --firstname Airflow \
+    --lastname Admin \
+    --role Admin \
+    --email admin@example.com
+```
+
+### 3. Lanzar un pipeline de ejemplo
+
+Hay un DAG de ejemplo en `dags/example_spark_dag.py` que lanza un job de Spark Pi al cluster Spark. Puedes activarlo desde la UI de Airflow.
+
+### 4. Parar los servicios
+
+```sh
+docker-compose down
+```
+
+### 5. (Opcional) Instalar dependencias Python locales
+Si quieres ejecutar notebooks o scripts locales:
+```sh
+pipenv install
+```
 
