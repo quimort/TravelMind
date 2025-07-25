@@ -16,6 +16,7 @@ dag = DAG(
 
 spark_submit = BashOperator(
     task_id='spark_pi',
-    bash_command='spark-submit --master spark://spark-master:7077 --class org.apache.spark.examples.SparkPi /opt/bitnami/spark/examples/jars/spark-examples_2.12-3.3.2.jar 10',
+    bash_command='spark-submit --master local[*] --class org.apache.spark.examples.SparkPi /opt/bitnami/spark/examples/jars/spark-examples_2.12-3.3.2.jar 10',
     dag=dag,
 )
+
