@@ -43,4 +43,7 @@ USER airflow
 # Install Airflow providers and Spark dependencies
 RUN pip install --no-cache-dir \
     apache-airflow-providers-apache-spark \
-    pyspark==3.5.5
+    pyspark==3.5.6
+
+# Copy configuration files
+COPY spark-defaults.conf ${SPARK_HOME}/conf/spark-defaults.conf
