@@ -1,11 +1,4 @@
-version: '3'
-
-x-spark-common: &spark-common
-  image: bitnami/spark:latest
-  volumes:
-    - ./jobs:/opt/bitnami/spark/jobs
-  networks:
-    - travelmind-net
+version: '3.8'
 
 x-airflow-common: &airflow-common
   build:
@@ -14,66 +7,286 @@ x-airflow-common: &airflow-common
   env_file:
     - airflow.env
   volumes:
-    - ./jobs:/opt/airflow/jobs
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+    - ./jobs:/opt/airflow/jobs
+    - spark-events:/opt/spark/events
   depends_on:
     - postgres
+    - redis
   networks:
     - travelmind-net
 
 services:
-  spark-master:
-    <<: *spark-common
-    command: bin/spark-class org.apache.spark.deploy.master.Master
-    ports:
-      - "9090:8080"
-      - "7077:7077"
-
-  spark-worker:
-    <<: *spark-common
-    command: bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
-    depends_on:
-      - spark-master
-    environment:
-      SPARK_MODE: worker
-      SPARK_WORKER_CORES: 2
-      SPARK_WORKER_MEMORY: 1g
-      SPARK_MASTER_URL: spark://spark-master:7077
-
+  # PostgreSQL for Airflow metadata
   postgres:
-    image: postgres:14.0
+    image: postgres:14
     environment:
-      - POSTGRES_USER=airflow
-      - POSTGRES_PASSWORD=airflow
-      - POSTGRES_DB=airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
     networks:
       - travelmind-net
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
 
-  webserver:
+  # Redis for Celery
+  redis:
+    image: redis:7.2-bookworm
+    expose:
+      - 6379
+    networks:
+      - travelmind-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 30s
+      retries: 50
+      start_period: 30s
+
+  # Airflow Webserver
+  airflow-webserver:
     <<: *airflow-common
-    command: bash -c "airflow db init && airflow webserver"
+    command: webserver
     ports:
-      - "8080:8080"
-    depends_on:
-      - scheduler
-      - postgres
+      - "8090:8080"  # Changed to avoid conflict with Spark
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 5
-
-  scheduler:
-    <<: *airflow-common
-    command: bash -c "airflow db init && airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin && airflow scheduler"
+      start_period: 30s
+    restart: always
     depends_on:
       - postgres
+      - redis
+      - airflow-init
+
+  # Airflow Scheduler
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
     healthcheck:
-      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\""]
-      interval: 10s
+      test: ["CMD", "airflow", "jobs", "check", "--job-type", "SchedulerJob", "--hostname", "$(hostname)"]
+      interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+      - airflow-init
+
+  # Airflow Worker
+  airflow-worker:
+    <<: *airflow-common
+    command: celery worker
+    healthcheck:
+      test: ["CMD-SHELL", 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$(hostname)"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    environment:
+      DUMB_INIT_SETSID: "0"
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+      - airflow-init
+
+  # Airflow Triggerer
+  airflow-triggerer:
+    <<: *airflow-common
+    command: triggerer
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$(hostname)"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+      - airflow-init
+
+  # Airflow Initialization
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        if [[ -z "${AIRFLOW_UID}" ]]; then
+          echo "AIRFLOW_UID not set, using default"
+          export AIRFLOW_UID=50000
+        fi
+        one_meg=1048576
+        mem_available=$$(($$(getconf _PHYS_PAGES) * $$(getconf PAGE_SIZE) / one_meg))
+        cpus_available=$$(grep -cE 'cpu[0-9]+' /proc/stat)
+        disk_available=$$(df / | tail -1 | awk '{print $$4}')
+        warning_resources="false"
+        if (( mem_available < 4000 )) ; then
+          echo "WARNING: Not enough memory available for Docker."
+          warning_resources="true"
+        fi
+        if (( cpus_available < 2 )); then
+          echo "WARNING: Not enough CPUS available for Docker."
+          warning_resources="true"
+        fi
+        if (( disk_available < one_meg * 10 )); then
+          echo "WARNING: Not enough Disk space available for Docker."
+          warning_resources="true"
+        fi
+        if [[ $${warning_resources} == "true" ]]; then
+          echo "WARNING: You have not enough resources to run Airflow (see above)!"
+          echo "Please follow the instructions to increase amount of resources available:"
+          echo "   https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html#before-you-begin"
+        fi
+        mkdir -p /sources/logs /sources/dags /sources/plugins
+        chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
+        chown -R "${AIRFLOW_UID}:0" /opt/spark/events
+        exec /entrypoint airflow version
+    environment:
+      _AIRFLOW_DB_MIGRATE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: airflow
+      _AIRFLOW_WWW_USER_PASSWORD: airflow
+    user: "0:0"
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-.}:/sources
+      - spark-events:/opt/spark/events
+
+  # Airflow CLI
+  airflow-cli:
+    <<: *airflow-common
+    profiles:
+      - debug
+    environment:
+      CONNECTION_CHECK_MAX_COUNT: "0"
+    command:
+      - bash
+      - -c
+      - |
+        airflow connections add 'spark_standalone_client' \
+          --conn-json '{
+              "conn_type": "spark",
+              "host": "spark://spark-master",
+              "port": 7077,
+              "extra": {
+                  "deploy-mode": "client"
+              }
+          }'
+
+  # Spark Master
+  spark-master:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_MASTER_PORT=7077
+    ports:
+      - "8080:8080"  # Spark Master Web UI
+      - "7077:7077"  # Spark Master Port
+    volumes:
+      - spark-events:/opt/spark/events
+      - ./jobs:/opt/spark/jobs
+    networks:
+      - travelmind-net
+    command: >
+      bash -c "/opt/spark/sbin/start-master.sh && tail -f /dev/null"
+
+  # Spark Worker
+  spark-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spark-worker-1
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2g
+    volumes:
+      - spark-events:/opt/spark/events
+      - ./jobs:/opt/spark/jobs
+    networks:
+      - travelmind-net
+    depends_on:
+      - spark-master
+    command: >
+      bash -c "/opt/spark/sbin/start-worker.sh spark://spark-master:7077 && tail -f /dev/null"
+
+  # Spark History Server
+  spark-history:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spark-history
+    environment:
+      - SPARK_HISTORY_OPTS=-Dspark.history.fs.logDirectory=/opt/spark/events
+    ports:
+      - "18080:18080"
+    volumes:
+      - spark-events:/opt/spark/events
+    networks:
+      - travelmind-net
+    depends_on:
+      - spark-master
+    command: >
+      bash -c "/opt/spark/sbin/start-history-server.sh && tail -f /dev/null"
+
+  # MinIO Object Storage
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    ports:
+      - "9000:9000"  # MinIO API
+      - "9001:9001"  # MinIO Console
+    volumes:
+      - minio-data:/data
+    networks:
+      - travelmind-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # MinIO Client for initialization
+  mc:
+    image: quay.io/minio/mc:latest
+    container_name: mc
+    depends_on:
+      - minio
+    networks:
+      - travelmind-net
+    volumes:
+      - ./init-minio.sh:/init-minio.sh
+      - ./policy.json:/policy.json
+      - ./sample-data.csv:/sample-data.csv
+    entrypoint: /init-minio.sh
+
+volumes:
+  postgres-db-volume:
+  spark-events:
+  minio-data:
 
 networks:
   travelmind-net:
+    driver: bridge
