@@ -11,3 +11,91 @@ docker-compose up -d
 
 # Check status
 docker-compose ps
+
+# === TROUBLESHOOTING COMMANDS ===
+
+# Fix shell script permissions for Pop!_OS/Linux
+chmod +x run-tests.sh
+chmod +x test-stack.sh
+
+# Fix line endings if script was created on Windows
+sed -i 's/\r$//' run-tests.sh
+
+# Run tests with bash directly if needed
+bash run-tests.sh
+
+# === DEBUGGING FAILING TESTS ===
+
+# Check Spark logs
+docker-compose logs spark-master
+docker-compose logs spark-worker
+
+# Test Spark connectivity manually
+docker exec -it travelmind-spark-master-1 spark-submit --version
+
+# Check MinIO logs
+docker-compose logs minio
+
+# Check if MinIO buckets were created
+docker exec -it travelmind-minio-1 mc ls minio
+
+# Recreate MinIO buckets if needed
+docker-compose restart minio-client
+
+# Create Spark connection in Airflow via CLI
+docker exec -it travelmind-airflow-webserver-1 airflow connections add 'spark_default' \
+    --conn-type 'spark' \
+    --conn-host 'spark-master' \
+    --conn-port '7077'
+
+# Create Spark connection via API
+curl -X POST "http://localhost:8090/api/v1/connections" \
+  -H "Content-Type: application/json" \
+  -u airflow:airflow \
+  -d '{
+    "connection_id": "spark_default",
+    "conn_type": "spark",
+    "host": "spark-master",
+    "port": 7077
+  }'
+
+# === QUICK FIX SEQUENCE ===
+
+# 1. Restart services to ensure clean state
+docker-compose restart spark-master spark-worker minio
+
+# 2. Wait for services to initialize
+sleep 30
+
+# 3. Recreate MinIO buckets
+docker-compose restart minio-client
+sleep 10
+
+# 4. Create Spark connection in Airflow
+docker exec -it travelmind-airflow-webserver-1 airflow connections add 'spark_default' \
+    --conn-type 'spark' \
+    --conn-host 'spark-master' \
+    --conn-port '7077' || echo "Connection might already exist"
+
+# 5. Test Spark connectivity
+docker exec -it travelmind-spark-master-1 spark-submit --version
+
+# === LOG CHECKING COMMANDS ===
+
+# Check all service logs
+docker-compose logs --tail=50
+
+# Check specific service logs
+docker-compose logs spark-master
+docker-compose logs minio
+docker-compose logs airflow-webserver
+
+# Check Docker system status
+sudo systemctl status docker
+
+# Check docker-compose version
+docker-compose --version
+
+# Add user to docker group (if permission errors)
+sudo usermod -aG docker $USER
+newgrp docker
