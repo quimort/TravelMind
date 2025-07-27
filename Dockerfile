@@ -20,10 +20,10 @@ ENV PATH="${JAVA_HOME}/bin:${SPARK_HOME}/bin:${SPARK_HOME}/sbin:${PATH}"
 
 # Download and install Spark
 RUN mkdir -p ${SPARK_HOME} && \
-    curl -L https://dlcdn.apache.org/spark/spark-3.5.5/spark-3.5.5-bin-hadoop3.tgz \
-    -o spark-3.5.5-bin-hadoop3.tgz && \
-    tar xvzf spark-3.5.5-bin-hadoop3.tgz --directory ${SPARK_HOME} --strip-components 1 && \
-    rm -rf spark-3.5.5-bin-hadoop3.tgz
+    curl -L https://archive.apache.org/dist/spark/spark-3.5.6/spark-3.5.6-bin-hadoop3.tgz \
+    -o spark-3.5.6-bin-hadoop3.tgz && \
+    tar xvzf spark-3.5.6-bin-hadoop3.tgz --directory ${SPARK_HOME} --strip-components 1 && \
+    rm -rf spark-3.5.6-bin-hadoop3.tgz
 
 # Download AWS dependencies for MinIO/S3 support
 RUN wget -P ${SPARK_HOME}/jars/ https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar && \
