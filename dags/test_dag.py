@@ -75,7 +75,7 @@ test_minio_task = PythonOperator(
 # Task 3: Test Spark job
 test_spark_task = SparkSubmitOperator(
     task_id='test_spark_job',
-    application='/opt/spark/examples/jars/spark-examples_2.12-3.5.5.jar',
+    application='opt/bitnami/spark/examples/jars/spark-examples_2.12-3.5.6.jar',
     java_class='org.apache.spark.examples.SparkPi',
     application_args=['10'],
     conn_id='spark_standalone_client',
