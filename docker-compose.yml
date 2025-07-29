@@ -61,6 +61,8 @@ services:
     container_name: spark-master
     networks:
       - sparkpg_network
+    environment:
+      - JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
     entrypoint: /bin/bash
     command: -c "/home/sparkuser/spark/sbin/start-master.sh; tail -f /dev/null"
     ports:
@@ -76,6 +78,8 @@ services:
     container_name: spark-worker1
     networks:
       - sparkpg_network
+    environment:
+      - JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
     entrypoint: /bin/bash
     command: -c "/home/sparkuser/spark/sbin/start-worker.sh  spark://spark-master:7077; tail -f /dev/null"
     volumes:
@@ -88,6 +92,8 @@ services:
     container_name: spark-history-server
     networks:
       - sparkpg_network
+    environment:
+      - JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
     entrypoint: /bin/bash
     command: -c "/home/sparkuser/spark/sbin/start-history-server.sh; tail -f /dev/null"
     volumes:

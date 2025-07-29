@@ -407,3 +407,4 @@ FodyWeavers.xsd
 
 Pipfile.lock
 data/*
+project/*
