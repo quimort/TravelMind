@@ -6,9 +6,10 @@
 x-airflow-common:
   &airflow-common
   image: airflow_with_spark
+  # Update build contexts
   build: 
-    context: .
-    dockerfile: Dockerfile.airflow
+    context: ..
+    dockerfile: architecture/Dockerfile.airflow
   networks:
     - sparkpg_network 
   environment:
@@ -45,18 +46,18 @@ networks:
 services:
   
   jar-builder:
-    image: my_first_spark
+    image: travelmind-spark
     build: .
     profiles:
       - build
     entrypoint: /bin/bash
-    command: -c "cd /app; sbt assembly; chown -R "${AIRFLOW_UID}:1000" target; chmod -R g+w target"
+    command: -c "cd /app; sbt assembly; chown -R \"${AIRFLOW_UID}:1000\" target; chmod -R g+w target"
     user: "0:1000"
     volumes:
       - .:/app
   
   spark-master:
-    image: my_first_spark
+    image: travelmind-spark
     build: .
     container_name: spark-master
     networks:
@@ -73,7 +74,7 @@ services:
       - spark-events:/home/sparkuser/spark/events
 
   spark-worker:
-    image: my_first_spark
+    image: travelmind-spark
     build: .
     container_name: spark-worker1
     networks:
@@ -87,7 +88,7 @@ services:
       - spark-events:/home/sparkuser/spark/events
     
   spark-history-server:
-    image: my_first_spark
+    image: travelmind-spark
     build: .
     container_name: spark-history-server
     networks:

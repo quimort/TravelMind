@@ -4,7 +4,8 @@ RUN apt-get update
 RUN apt-get install -y --no-install-recommends openjdk-17-jdk
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 ENV SPARK_HOME="/home/sparkuser/spark"
-ENV JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+# Fix JAVA_HOME for ARM64
+ENV JAVA_HOME="/usr/lib/jvm/java-17-openjdk-arm64"
 ENV PATH="${JAVA_HOME}:${SPARK_HOME}/bin:${SPARK_HOME}/sbin:${PATH}"
 RUN mkdir -p ${SPARK_HOME}
 WORKDIR ${SPARK_HOME}
