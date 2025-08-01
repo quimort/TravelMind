@@ -29,6 +29,6 @@ RUN chown -R airflow:sparkuser ${SPARK_HOME}
 RUN apt update
 RUN apt-get -y install procps
 
-COPY ./spark-defaults.conf "${SPARK_HOME}/conf"
+COPY ./architecture/spark-defaults.conf "${SPARK_HOME}/conf"
 
 USER airflow
