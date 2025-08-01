@@ -21,14 +21,14 @@ ENV SPARK_MASTER_HOST="spark-master"
 
 # Install sbt using coursier (cs) to build jars (Comment these out if not needed to speed up image build)
 # Replace the Coursier download section with the correct URLs:
-RUN ARCH=$(uname -m) && \
-    if [ "$ARCH" = "aarch64" ]; then \
-        curl -fL https://github.com/VirtusLab/coursier-m1/releases/latest/download/cs-aarch64-pc-linux.gz | gzip -d > cs; \
-    else \
-        curl -fL https://github.com/coursier/coursier/releases/latest/download/cs-x86_64-pc-linux.gz | gzip -d > cs; \
-    fi && \
-    chmod +x cs
-ENV PATH="$PATH:/root/.local/share/coursier/bin"
+# RUN ARCH=$(uname -m) && \
+#     if [ "$ARCH" = "aarch64" ]; then \
+#         curl -fL https://github.com/VirtusLab/coursier-m1/releases/latest/download/cs-aarch64-pc-linux.gz | gzip -d > cs; \
+#     else \
+#         curl -fL https://github.com/coursier/coursier/releases/latest/download/cs-x86_64-pc-linux.gz | gzip -d > cs; \
+#     fi && \
+#     chmod +x cs
+# ENV PATH="$PATH:/root/.local/share/coursier/bin"
 # RUN ./cs setup  # Keep this commented out to avoid Rosetta issues
 
 # Download postgres jar and add it to spark jars
