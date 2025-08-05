@@ -14,6 +14,9 @@ WORKDIR ${SPARK_HOME}
 RUN curl https://dlcdn.apache.org/spark/spark-3.5.6/spark-3.5.6-bin-hadoop3.tgz -o spark-3.5.6-bin-hadoop3.tgz \
     && tar xvzf spark-3.5.6-bin-hadoop3.tgz --directory ${SPARK_HOME} --strip-components 1 \
     && rm -rf spark-3.5.6-bin-hadoop3.tgz
+
+# Download Iceberg JARs
+RUN wget -P ${SPARK_HOME}/jars/ https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-3.5_2.12/1.4.3/iceberg-spark-runtime-3.5_2.12-1.4.3.jar
 # Port master will be exposed
 ENV SPARK_MASTER_PORT="7077"
 # Name of master container and also counts as hostname
