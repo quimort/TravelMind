@@ -6,6 +6,7 @@ from io import BytesIO
 import pandas as pd
 import os
 import sys
+from io import StringIO
 
 def create_context() -> SparkSession:
 
@@ -16,9 +17,12 @@ def create_context() -> SparkSession:
         .appName("IcebergWritedata") \
         .config("spark.sql.catalog.spark_catalog", "org.apache.iceberg.spark.SparkSessionCatalog") \
         .config("spark.sql.catalog.spark_catalog.type", "hadoop") \
-        .config("spark.sql.catalog.spark_catalog.warehouse", "../data/warehouse") \
+        .config("spark.sql.catalog.spark_catalog.warehouse", "C:/Users/Joaquim Balletbo/OneDrive/Documents/AAmaster_UPC/TFM/TravelMind/data/warehouse") \
         .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
         .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3") \
+        .config("spark.hadoop.fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem")\
+        .config("spark.hadoop.parquet.enable.summary-metadata", "false")\
+        .config("spark.hadoop.fs.localfile.impl.disable.cache", "true")\
         .getOrCreate()
     
     return spark
@@ -42,6 +46,41 @@ def get_api_endpoint_excel(spark:SparkSession,path:str,filter:str = None) -> Dat
         return df_spark
     else:
         print(f"Error {response.status_code}: no se pudo obtener el archivo.")
+
+def get_api_endpoint_data(spark: SparkSession, path: str, filter: str = None) -> 'DataFrame':
+
+    # Construir URL
+    url = f"{path}?{filter}" if filter else path
+    response = requests.get(url)
+
+    # Verificar éxito
+    if response.status_code != 200:
+        raise Exception(f"Error {response.status_code}: no se pudo obtener los datos. Detalles: {response.text}")
+
+    # Decodificar como texto con encoding adecuado
+    try:
+        text = response.content.decode('latin-1')  # Asume encoding ISO-8859-1 para caracteres acentuados
+    except Exception as e:
+        raise ValueError(f"Error al decodificar contenido: {e}")
+
+    # Leer CSV con Pandas
+    try:
+        df_pandas = pd.read_csv(
+            StringIO(text),
+            sep=';',              # separador punto y coma
+            decimal=',',          # coma como decimal
+            encoding='latin-1',   # asegurar lectura de caracteres especiales
+            parse_dates=False     # desactivar parse automático de fechas
+        )
+    except Exception as e:
+        raise ValueError(f"Error al leer CSV: {e}")
+
+    # Convertir a Spark DataFrame
+    try:
+        df_spark = spark.createDataFrame(df_pandas)
+        return df_spark
+    except Exception as e:
+        raise ValueError(f"Error al convertir a Spark DataFrame: {e}")
 
 def overwrite_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
 

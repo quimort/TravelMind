@@ -16,10 +16,14 @@ def create_context() -> SparkSession:
         .appName("IcebergWritedata") \
         .config("spark.sql.catalog.spark_catalog", "org.apache.iceberg.spark.SparkSessionCatalog") \
         .config("spark.sql.catalog.spark_catalog.type", "hadoop") \
-        .config("spark.sql.catalog.spark_catalog.warehouse", "../data/warehouse") \
+        .config("spark.sql.catalog.spark_catalog.warehouse", "C:/Users/Joaquim Balletbo/OneDrive/Documents/AAmaster_UPC/TFM/TravelMind/data/warehouse") \
         .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
         .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3") \
+        .config("spark.hadoop.fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem")\
+        .config("spark.hadoop.parquet.enable.summary-metadata", "false")\
+        .config("spark.hadoop.fs.localfile.impl.disable.cache", "true")\
         .getOrCreate()
+    
     
     return spark
 
