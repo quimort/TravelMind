@@ -191,12 +191,18 @@ if __name__ == "__main__":
         )
 
         # 5. Convertir a DataFrame con el esquema definido
-        df_spark = spark.createDataFrame(processed_rdd, schema=esquema)
+        df_spark_aemet = spark.createDataFrame(processed_rdd, schema=esquema)
    
         # Mostrar resultados
         print(" Datos cargados correctamente usando RDDs")
-        print(f"Total registros: {df_spark.count()}")
-        df_spark.show(5,truncate=False)
+        print(f"Total registros: {df_spark_aemet.count()}")
+        df_spark_aemet.show(5,truncate=False)
+        
+        #6. Guardar el DataFrame en Iceberg
+        db_name = "local_db"
+        table_name = "aemetRawDiario"
+        utils.overwrite_iceberg_table(spark,df_spark_aemet,db_name,table_name)
+        
     except Exception as e:
         print(f"\n Error: {str(e)}")
     finally:
