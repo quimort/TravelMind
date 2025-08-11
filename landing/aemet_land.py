@@ -199,6 +199,11 @@ if __name__ == "__main__":
         print(f"\nTotal registros: {df_spark_aemet.count()}")
         df_spark_aemet.show(5,truncate=False)
         
+        #mostrar datos con tipos convertidos
+        print("\n Datos con tipos convertidos:")
+        df_spark_aemet.printSchema()
+        df_spark_aemet.show(5, truncate=False)
+        #         
         # 6. Guardar en Iceberg        
         # 6.1 Definir nombres de base de datos y tabla
         db_name = "local_db"
