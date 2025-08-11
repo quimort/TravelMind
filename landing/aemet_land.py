@@ -138,8 +138,12 @@ end_date = datetime(2020, 1, 30)
 
 # 3. Llama a la función con los argumentos
 # y maneja la creación del contexto Spark
+# 3. Llama a la función con los argumentos
+# y maneja la creación del contexto Spark
 if __name__ == "__main__":
     try:
+
+
         print("Iniciando la descarga de datos de AEMET...")
         # La función devuelve el nombre del archivo generado
         nombre_archivo_generado = descargar_datos_aemet_raw(start_date, end_date, API_KEY)
@@ -155,7 +159,11 @@ if __name__ == "__main__":
         # 1. Crear la sesión de Spark correctamente
         spark = utils.create_context()
         # 2. Obtener el SparkContext desde la SparkSession
-        sc = spark.sparkContext        
+        sc = spark.sparkContext
+
+        # Ver el warehouse configurado
+        print("Warehouse configurado:", spark.conf.get("spark.sql.catalog.spark_catalog.warehouse"))
+        # 2. Definir el esquema para el DataFrame
         esquema = StructType([
             StructField("fecha", StringType()),  # o StringType() si prefieres mantenerlo como texto
             StructField("indicativo", StringType()),
@@ -179,31 +187,45 @@ if __name__ == "__main__":
             StructField("horaHrMin", StringType())
         ])
         # 3. Cargar directamente como RDD y convertir a DataFrame
-        rdd = sc.wholeTextFiles(nombre_archivo_generado)
+        #rdd = sc.wholeTextFiles(nombre_archivo_generado)
+        df_raw = spark.read.option("multiline", "true").json(nombre_archivo_generado)
+    
 
-        # 4. Procesar con operaciones RDD
-        processed_rdd = (
-        rdd.map(lambda x: x[1])  # Obtener contenido
-        .map(lambda x: json.loads(x))  # Parsear JSON
-        .filter(lambda x: 'data' in x)  # Verificar que tenga clave 'data'
-        .flatMap(lambda x: x['data'])  # Extraer array de datos
-        .filter(lambda x: x is not None)  # Filtrar posibles nulos
-        )
 
-        # 5. Convertir a DataFrame con el esquema definido
-        df_spark_aemet = spark.createDataFrame(processed_rdd, schema=esquema)
-   
+        # 4. Procesar Json con Explode
+        # Usar explode para descomponer el JSON y forzando al squema definido
+        print("\n Procesando JSON a Spark...")
+        df_spark_aemet = df_raw.select(explode(col("data")).alias("row")) \
+            .selectExpr("row.*") \
+            .selectExpr("*") \
+            .selectExpr(*[f"CAST({c} AS STRING)" for c in esquema.fieldNames()])
+
         # Mostrar resultados
-        print(" Datos cargados correctamente usando RDDs")
-        print(f"Total registros: {df_spark_aemet.count()}")
+        print("\n Datos cargados correctamente...")
+        print(f"\nTotal registros: {df_spark_aemet.count()}")
         df_spark_aemet.show(5,truncate=False)
         
-        #6. Guardar el DataFrame en Iceberg
+        # 6. Guardar en Iceberg        
+        # Definir nombres de base de datos y tabla
         db_name = "local_db"
         table_name = "aemetRawDiario"
-        utils.overwrite_iceberg_table(spark,df_spark_aemet,db_name,table_name)
+        # Guardar en Iceberg (usando tu función utils)
+        print(f"\nGuardando datos en Iceberg: {db_name}.{table_name}")
+        utils.overwrite_iceberg_table(spark, df_spark_aemet, db_name, table_name)
+       
+        # Verificación
+        print("\nVerificación:")
+        print(f"- Tablas en {db_name}:")
+        spark.sql(f"SHOW TABLES IN {db_name}").show(truncate=False)
         
+        print(f"\n- Schema de {table_name}:")
+        spark.sql(f"DESCRIBE {db_name}.{table_name}").show(truncate=False)
+
     except Exception as e:
         print(f"\n Error: {str(e)}")
+        raise e
     finally:
-        sc.stop()
+        # Limpieza con tiempo para evitar warnings
+        time.sleep(3)
+        if 'spark' in locals():
+            spark.stop()
