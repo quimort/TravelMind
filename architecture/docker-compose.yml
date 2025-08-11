@@ -32,6 +32,7 @@ x-airflow-common:
     - ../logs:/opt/airflow/logs
     - ../config:/opt/airflow/config
     - ../plugins:/opt/airflow/plugins
+    - ../include:/opt/airflow/include
   user: "${AIRFLOW_UID:-50000}:1000"
   depends_on:
     &airflow-common-depends-on
@@ -70,7 +71,7 @@ services:
       - '8080:8080'
       - '4040:4040'
     volumes:
-      - ..:/app  # Mount the parent directory (project root) to /app
+      - ../include:/opt/airflow/include
       - spark-events:/home/sparkuser/spark/events
 
   spark-worker:
@@ -84,7 +85,7 @@ services:
     entrypoint: /bin/bash
     command: -c "/home/sparkuser/spark/sbin/start-worker.sh  spark://spark-master:7077; tail -f /dev/null"
     volumes:
-      - .:/app
+      - ../include:/opt/airflow/include
       - spark-events:/home/sparkuser/spark/events
     
   spark-history-server:
