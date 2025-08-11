@@ -1,6 +1,7 @@
 import utils as utils
 import requests, time
 import json
+import os
 from datetime import datetime, timedelta
 from pyspark.sql import SparkSession
 from datetime import datetime, timedelta
@@ -29,7 +30,7 @@ def descargar_datos_aemet_raw(start_date, end_date, api_key, delay_seconds=0.5):
     end_url = '/todasestaciones'
     all_climatological_data = []
     
-    print(f"🔍 Iniciando descarga del período: {start_date.date()} a {end_date.date()}")
+    print(f" Iniciando descarga del período: {start_date.date()} a {end_date.date()}")
 
     # --------------------------------------------
     # 2. Generar intervalos de 15 días
@@ -123,8 +124,7 @@ def descargar_datos_aemet_raw(start_date, end_date, api_key, delay_seconds=0.5):
     return archivojson
 
 pass    
-# --- AÑADE ESTO AL FINAL DE TU ARCHIVO ---
-
+# --------------------------------------------
 # 1. Configura tu API Key
 # Es mejor no hardcodear la clave API directamente en el código para la seguridad.
 # Sin embargo, para este ejemplo, la asignaremos directamente.
@@ -138,18 +138,14 @@ end_date = datetime(2020, 1, 30)
 
 # 3. Llama a la función con los argumentos
 # y maneja la creación del contexto Spark
-# 3. Llama a la función con los argumentos
-# y maneja la creación del contexto Spark
 if __name__ == "__main__":
     try:
-
-
+        
         print("Iniciando la descarga de datos de AEMET...")
         # La función devuelve el nombre del archivo generado
         nombre_archivo_generado = descargar_datos_aemet_raw(start_date, end_date, API_KEY)
         
         # Verificar que el archivo existe
-        import os
         if not os.path.exists(nombre_archivo_generado):
             raise FileNotFoundError(f"No se encontró el archivo {nombre_archivo_generado}")
         
@@ -161,9 +157,9 @@ if __name__ == "__main__":
         # 2. Obtener el SparkContext desde la SparkSession
         sc = spark.sparkContext
 
-        # Ver el warehouse configurado
+        # Ver el warehouse configurado (ubicación en caso de necesitarlo, se puede usar para verificacion)
         print("Warehouse configurado:", spark.conf.get("spark.sql.catalog.spark_catalog.warehouse"))
-        # 2. Definir el esquema para el DataFrame
+        # 3. Definir el esquema para el DataFrame
         esquema = StructType([
             StructField("fecha", StringType()),  # o StringType() si prefieres mantenerlo como texto
             StructField("indicativo", StringType()),
@@ -186,37 +182,57 @@ if __name__ == "__main__":
             StructField("hrMin", StringType()),  # humedad relativa mínima
             StructField("horaHrMin", StringType())
         ])
-        # 3. Cargar directamente como RDD y convertir a DataFrame
+        # 4. Cargar json y convertir a DataFrame
         #rdd = sc.wholeTextFiles(nombre_archivo_generado)
         df_raw = spark.read.option("multiline", "true").json(nombre_archivo_generado)
-    
 
-
-        # 4. Procesar Json con Explode
+        # 5. Procesar Json con Explode
         # Usar explode para descomponer el JSON y forzando al squema definido
         print("\n Procesando JSON a Spark...")
         df_spark_aemet = df_raw.select(explode(col("data")).alias("row")) \
             .selectExpr("row.*") \
             .selectExpr("*") \
             .selectExpr(*[f"CAST({c} AS STRING)" for c in esquema.fieldNames()])
-
+        
         # Mostrar resultados
         print("\n Datos cargados correctamente...")
         print(f"\nTotal registros: {df_spark_aemet.count()}")
         df_spark_aemet.show(5,truncate=False)
         
         # 6. Guardar en Iceberg        
-        # Definir nombres de base de datos y tabla
+        # 6.1 Definir nombres de base de datos y tabla
         db_name = "local_db"
         table_name = "aemetRawDiario"
-        # Guardar en Iceberg (usando tu función utils)
+        # 6.2 Guardar en Iceberg (usando función utils)
         print(f"\nGuardando datos en Iceberg: {db_name}.{table_name}")
         utils.overwrite_iceberg_table(spark, df_spark_aemet, db_name, table_name)
+        # Eliminar el archivo JSON generado
+        if os.path.exists(nombre_archivo_generado):
+            os.remove(nombre_archivo_generado)
+            print(f"Archivo {nombre_archivo_generado} eliminado correctamente.")
+        else:
+            print(f"Archivo {nombre_archivo_generado} no encontrado para eliminar.")
+
+        # 6.3 Verificar ubicación de la tabla Iceberg
+        print("\nUbicación de la tabla Iceberg:")
+        #spark.sql("DESCRIBE FORMATTED local_db.aemetRawDiario").filter("col_name = 'Location'").show(truncate=False)
+        location = (
+        spark.sql("DESCRIBE FORMATTED local_db.aemetRawDiario")
+            .filter("col_name = 'Location'")
+            .select("data_type")
+            .collect()[0][0]
+        )
+        print(f"La tabla Iceberg se guardó en: {location}")
        
         # Verificación
-        print("\nVerificación:")
-        print(f"- Tablas en {db_name}:")
-        spark.sql(f"SHOW TABLES IN {db_name}").show(truncate=False)
+        #print("\nVerificación:")
+        #print(f"- Tablas en {db_name}:")
+        #spark.sql(f"SHOW TABLES IN {db_name}").show(truncate=False)
+        #listar tablas
+        #print(f"\n- Tablas en {db_name}:", [s.name for s in spark.catalog.listTables(db_name)])
+        #print(f"\n- Tabla {table_name} existe:", spark.catalog.tableExists(f"{db_name}.{table_name}"))
+        #print(f"- Cantidad de registros en {table_name}: {spark.table(f'{db_name}.{table_name}').count()}")
+
         
         print(f"\n- Schema de {table_name}:")
         spark.sql(f"DESCRIBE {db_name}.{table_name}").show(truncate=False)
