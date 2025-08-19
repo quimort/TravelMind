@@ -15,6 +15,10 @@ requests = "==2.32.3"
 pandas = "==2.3.0"
 openpyxl = "*"
 ipykernel = "*"
+matplotlib = "*"
+seaborn = "*"
+
+
 
 [requires]
 python_version = "3.11.5"
