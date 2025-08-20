@@ -74,15 +74,9 @@ class VisitQualityPredictor:
         try:
             # Load weather data
             print("  Loading weather data...")
-            self.df_weather = self.spark.read.format('iceberg').load('spark_catalog.exploitation.clima_barcelona')
+            self.df_weather = self.spark.read.format('iceberg').load('spark_catalog.trusted.aemetTrustedDiario')
             weather_count = self.df_weather.count()
             print(f"    Weather records: {weather_count}")
-            
-            # Load tourism data
-            print("  Loading tourism data...")
-            self.df_tourism = self.spark.read.format('iceberg').load('spark_catalog.exploitation.turismo_Provincia')
-            tourism_count = self.df_tourism.count()
-            print(f"    Tourism records: {tourism_count}")
             
             # Load hotel occupancy data
             print("  Loading hotel occupancy data...")
