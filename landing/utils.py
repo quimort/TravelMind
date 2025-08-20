@@ -82,6 +82,46 @@ def get_api_endpoint_data(spark: SparkSession, path: str, filter: str = None) ->
     except Exception as e:
         raise ValueError(f"Error al convertir a Spark DataFrame: {e}")
 
+def get_api_endpoint_excel_data(spark: SparkSession, path: str, filter: str = None) -> 'DataFrame':
+    """
+    Fetch data from an API endpoint that returns an Excel (.xlsx) file,
+    and convert it to a Spark DataFrame.
+    
+    Parameters:
+        spark : SparkSession
+            The Spark session to use.
+        path : str
+            The API endpoint URL.
+        filter : str, optional
+            Optional query string to append to the URL.
+    
+    Returns:
+        Spark DataFrame
+    """
+
+    # Build the full URL
+    url = f"{path}?{filter}" if filter else path
+    response = requests.get(url)
+
+    # Check for successful response
+    if response.status_code != 200:
+        raise Exception(f"Error {response.status_code}: no se pudo obtener los datos. Detalles: {response.text}")
+
+    # Load Excel into pandas
+    try:
+        excel_file = BytesIO(response.content)
+        df_pandas = pd.read_excel(excel_file, engine='openpyxl')  # explicitly use openpyxl engine
+    except Exception as e:
+        raise ValueError(f"Error al leer Excel: {e}")
+
+    # Convert to Spark DataFrame
+    try:
+        df_spark = spark.createDataFrame(df_pandas)
+        return df_spark
+    except Exception as e:
+        raise ValueError(f"Error al convertir a Spark DataFrame: {e}")
+
+
 def overwrite_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
 
     spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
