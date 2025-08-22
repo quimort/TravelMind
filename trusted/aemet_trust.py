@@ -3,6 +3,7 @@ from pyspark.sql.functions import col, regexp_replace
 from pyspark.sql.types import DoubleType, IntegerType
 import utils as utils
 import sys
+import os
 def check_spark_alive(spark):
     try:
         _ = spark.version  # Fuerza acceso a la sesión
@@ -25,87 +26,58 @@ def replace_commas_with_dots(df, columns):
 
 if __name__ == "__main__":
     # 1️⃣ Crear sesión Spark
-    spark = utils.create_context()
+    spark = utils.create_context_trusted()  # 👈 usa el nuevo contexto con catálogo propio y rutas cortas
 
-    # Parámetros de entrada y salida
-    db_landing = "local_db"
-    table_name_raw = "aemetRawDiario"
-    db_name_trusted = "trusted"
-    table_name_trusted = "aemetTrustedDiario"
+    # Tablas (ojo al catálogo)
+    # Tablas (ojo al catálogo)
+    # RAW: si tu RAW está en otro catálogo, accédelo con su nombre completo (ajústalo a tu caso real).
+    # Ejemplo si el RAW está en spark_catalog: spark.table("local_db.aemetRawDiario")
+    # o si también está en trustedcat: spark.table("trustedcat.local_db.aemetRawDiario")
+    print("📥 Leyendo tabla RAW: spark_catalog.local_db.aemetRawDiario")
+    # 1️⃣ Crear la DB en el catálogo spark_catalog si no existe
+    spark.sql("CREATE DATABASE IF NOT EXISTS spark_catalog.local_db")
 
-    # 2️⃣ Leer tabla desde Iceberg (RAW)
-    print(f"📥 Leyendo tabla RAW: {db_landing}.{table_name_raw}")
-    df_raw = utils.read_iceberg_table(spark, db_landing, table_name_raw)
+    spark.sql("""
+    CREATE TABLE IF NOT EXISTS spark_catalog.local_db.aemetRawDiario
+    USING ICEBERG
+    LOCATION './data/warehouse/local_db/aemetRawDiario'
+    """)
 
-    # Lista de columnas a procesar (con comas decimales)
-    numeric_cols_comma = [
-        "tmed", "prec", "tmin", "tmax", "velmedia", "racha",
-        "hrMedia", "hrMax", "hrMin", "altitud"
-    ]
+    df_raw = spark.read.table("spark_catalog.local_db.aemetRawDiario")  # si es spark_catalog por defecto
+    # Si no, usa: df_raw = spark.table("trustedcat.local_db.aemetRawDiario")
+    print(f"📊 Registros RAW: {df_raw.count()}")
+    #confirmar que la tabla existe
+    spark.sql("SHOW DATABASES IN spark_catalog").show()
+    spark.sql("SHOW TABLES IN spark_catalog.local_db").show()
 
-    # 3️⃣ Reemplazar comas por puntos
-    print("🔄 Reemplazando comas por puntos en columnas numéricas...")
-    df_clean = replace_commas_with_dots(df_raw, numeric_cols_comma)
+    # numeric_cols = ["tmed","prec","tmin","tmax","velmedia","racha","hrMedia","hrMax","hrMin","altitud"]
+    # print("🔄 Normalizando decimales y casteando a Double...")
+    # df_clean = replace_commas_with_dots(df_raw, numeric_cols)
 
-    # 3. Confirmar Spark y tipo de DataFrame
-    if not check_spark_alive(spark):
-        print("⚠️ Abortando: Spark no está vivo")
-        sys.exit(1)
-        
-    # Verificar que es DataFrame de Spark antes de guardar
-    if isinstance(df_clean, DataFrame):
-        print("✅ df_clean es un DataFrame de Spark")
-    else:
-        raise TypeError("❌ df_clean NO es un DataFrame de Spark")
-    
-    #mostrar esquema del DataFrame
-    print("\nEsquema del DataFrame:")
-    df_clean.printSchema()
-    print(f"Número de filas: {df_clean.count()}")
-    
-    # desactivar Arrow para paqruet para evitar problemas de serialización
-    print("🔧 Desactivando Arrow para evitar problemas de serialización..." )
-    spark.conf.set("spark.sql.execution.arrow.pyspark.enabled", "false")
+    # # Test previo con subset en Parquet (ruta corta)
+    # TEST_PATH = r"C:\parq_test_trusted"
+    # os.makedirs(TEST_PATH, exist_ok=True)
+    # print(f"📝 Test Parquet (1000 filas) en: {TEST_PATH}")
+    # df_sample = df_clean.limit(1000)
+    # df_sample.repartition(4).write.mode("overwrite").parquet(TEST_PATH)
+    # print("✅ Test Parquet OK")
 
-    # ---------------------------
-    # 4. TEST DE ESCRITURA EN PARQUET
-    # ---------------------------
-    print("📝 Test de escritura en Parquet temporal...")
-    try:
-        df_clean.write.mode("overwrite").csv("tmp_test_csv")
-        print("✅ Escritura correcta.")
-    except Exception as e:
-        print(f"❌ Error escribiendo datos: {e}")
-        raise SystemExit("⚠️ Abortando por fallo en prueba local de escritura")
+    # # Repartición segura antes de escribir Iceberg
+    # df_trusted = df_clean.repartition(8)
 
-    # ---------------------------
-    # 5. REDUCIR PARTICIONES ANTES DE GUARDAR
-    # ---------------------------
-    df_trusted = df_clean.coalesce(4)  # Puedes aumentar si la tabla es muy grande
+    # # Escribe la tabla Iceberg en el catálogo 'trustedcat'
+    # db_name = "trusted"
+    # tbl_name = "aemetTrustedDiario"
+    # full_tbl = f"trustedcat.{db_name}.{tbl_name}"
 
+    # print(f"💾 Sobrescribiendo tabla Iceberg: {full_tbl}")
+    # # Opción 1: DataFrameWriter V2 (recomendado)
+    # (
+    #     df_trusted.writeTo(full_tbl)
+    #     .option("overwrite-mode", "dynamic")
+    #     .createOrReplace()
+    # )
+    # print("✅ Tabla Iceberg guardada correctamente")
 
-    # 4️⃣ Confirmar que Spark sigue vivo antes de escribir en Iceberg
-    try:
-        spark_version = spark.version
-        print(f"💡 Spark sigue activo. Versión: {spark_version}")
-    except Exception as e:
-        printutils.overwrite_iceberg_table(spark, df_clean, db_name=db_name_trusted, table_name=table_name_trusted)(f"❌ Spark no está disponible: {e}")
-        raise SystemExit("⚠️ Abortando: sesión Spark finalizada.")
-    # ---------------------------
-    # 6. GUARDAR EN ICEBERG (tb_name_trusted)
-    # ---------------------------
-    print(f"💾 Guardando tabla TRUSTED: {db_name_trusted}.{table_name_trusted}")
-    try:
-        utils.overwrite_iceberg_table(spark, df_trusted,
-                                    db_name=db_name_trusted,
-                                    table_name=table_name_trusted)
-        print("✅ Tabla Iceberg guardada correctamente.")
-    except Exception as e:
-        print(f"❌ Error escribiendo en Iceberg: {e}")
-        raise
-    
-    #print(f"💾 Guardando tabla TRUSTED: {db_name_trusted}.{table_name_trusted}")
-    #
-    
     spark.stop()
-    print("✅ Proceso completado.")
+    # print("🏁 Proceso completado")
