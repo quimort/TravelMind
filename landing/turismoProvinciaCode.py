@@ -1,16 +1,4 @@
-import os
-os.chdir("c:/Users/Joaquim Balletbo/OneDrive/Documents/AAmaster_UPC/TFM/TravelMind/landing/")
-print(os.getcwd())
-
-import pyspark
-from pyspark.sql import SparkSession,DataFrame
-import requests
-import json 
-from io import BytesIO
-import pandas as pd
-import os
-import sys
-import utils as utils
+import utilsJoaquim as utils
 
 spark = utils.create_context()
 spark.sparkContext.setLogLevel("ERROR")
