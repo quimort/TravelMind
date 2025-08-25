@@ -19,7 +19,7 @@ def create_context() -> SparkSession:
         .config("spark.sql.catalog.spark_catalog.warehouse", "./data/warehouse") \
         .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
         .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3") \
-        .config("spark.driver.memory", "4g") \
+        .config("spark.sql.parquet.enableVectorizedReader", "false") \
         .config("spark.executor.memory", "4g") \
         .config("spark.memory.offHeap.enabled", "true") \
         .config("spark.memory.offHeap.size", "2g") \
@@ -74,17 +74,17 @@ def overwrite_iceberg_table(spark: SparkSession, df: DataFrame, db_name: str, ta
 
     if spark.catalog.tableExists(full_name):
         print(f"Sobrescribiendo tabla existente: {full_name}")
-        df.writeTo(full_name).using("iceberg").overwritePartitions()
+        df.writeTo(full_name).using("iceberg").overwrite()
     else:
         print(f"Tabla no existe, creando: {full_name}")
-        df.writeTo(full_name).using("iceberg").create()
+        df.writeTo(full_name).using("iceberg").createOrReplace()
 
-    if check_table_exists(spark,db_name,table_name):
-        spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
-        # Guardar tabla Iceberg
-        df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").append()
-    else:
-        overwrite_iceberg_table(spark,df,db_name,table_name)
+    # if check_table_exists(spark,db_name,table_name):
+    #     spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
+    #     # Guardar tabla Iceberg
+    #     df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").append()
+    # else:
+    #     overwrite_iceberg_table(spark,df,db_name,table_name)
 
 def merge_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str,primary_key:list):
 
