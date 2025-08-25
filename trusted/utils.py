@@ -16,7 +16,7 @@ def create_context() -> SparkSession:
         .appName("IcebergWritedata") \
         .config("spark.sql.catalog.spark_catalog", "org.apache.iceberg.spark.SparkSessionCatalog") \
         .config("spark.sql.catalog.spark_catalog.type", "hadoop") \
-        .config("spark.sql.catalog.spark_catalog.warehouse", "../data/warehouse") \
+        .config("spark.sql.catalog.spark_catalog.warehouse", "./data/warehouse") \
         .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
         .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3") \
         .config("spark.driver.memory", "4g") \
@@ -24,7 +24,7 @@ def create_context() -> SparkSession:
         .config("spark.memory.offHeap.enabled", "true") \
         .config("spark.memory.offHeap.size", "2g") \
         .getOrCreate()
-    
+    #.config("spark.sql.catalog.spark_catalog.warehouse", "file:///C:/Users/varga/Desktop/MasterBIGDATA_BCN/Aulas/Proyecto/TFM/TravelMind/data/warehouse") \
     return spark
 
 def create_context_trusted():
@@ -49,7 +49,7 @@ def create_context_trusted():
         .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1")
         .config("spark.sql.catalog.trustedcat", "org.apache.iceberg.spark.SparkCatalog")
         .config("spark.sql.catalog.trustedcat.type", "hadoop")
-        .config("spark.sql.catalog.spark_catalog.warehouse", "./data/warehouse")
+        .config("spark.sql.catalog.spark_catalog.warehouse", "../data/warehouse")
         #.config("spark.sql.catalog.trustedcat.warehouse", ICE_WH)
         # Evita rutas relativas y profundas
         #.config("spark.sql.warehouse.dir", ICE_WH)
@@ -62,13 +62,22 @@ def create_context_trusted():
     )
     return spark
 
-def overwrite_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
+def create_iceberg_table(spark: SparkSession, df: DataFrame, db_name: str, table_name: str):
 
     spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
     # Guardar tabla Iceberg
-    df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").createOrReplace()
+    df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").create()
 
-def append_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
+def overwrite_iceberg_table(spark: SparkSession, df: DataFrame, db_name: str, table_name: str):
+    spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
+    full_name = f"spark_catalog.{db_name}.{table_name}"
+
+    if spark.catalog.tableExists(full_name):
+        print(f"Sobrescribiendo tabla existente: {full_name}")
+        df.writeTo(full_name).using("iceberg").overwritePartitions()
+    else:
+        print(f"Tabla no existe, creando: {full_name}")
+        df.writeTo(full_name).using("iceberg").create()
 
     if check_table_exists(spark,db_name,table_name):
         spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
