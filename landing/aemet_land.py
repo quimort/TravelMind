@@ -183,7 +183,6 @@ if __name__ == "__main__":
             StructField("horaHrMin", StringType())
         ])
         # 4. Cargar json y convertir a DataFrame
-        #rdd = sc.wholeTextFiles(nombre_archivo_generado)
         df_raw = spark.read.option("multiline", "true").json(nombre_archivo_generado)
 
         # 5. Procesar Json con Explode
@@ -196,21 +195,17 @@ if __name__ == "__main__":
         
         # Mostrar resultados
         print("\n Datos cargados correctamente...")
-        print(f"\nTotal registros: {df_spark_aemet.count()}")
+        #print(f"\nTotal registros: {df_spark_aemet.count()}")
         df_spark_aemet.show(5,truncate=False)
         
-        #mostrar datos con tipos convertidos
-        print("\n Datos con tipos convertidos:")
-        df_spark_aemet.printSchema()
-        df_spark_aemet.show(5, truncate=False)
         #         
         # 6. Guardar en Iceberg        
         # 6.1 Definir nombres de base de datos y tabla
-        db_name = "local_db"
+        db_name = "landing_db"
         table_name = "aemetRawDiario"
         # 6.2 Guardar en Iceberg (usando función utils)
         print(f"\nGuardando datos en Iceberg: {db_name}.{table_name}")
-        utils.overwrite_iceberg_table(spark, df_spark_aemet, db_name, table_name)
+        utils.create_iceberg_table(spark, df_spark_aemet, db_name, table_name)
         # Eliminar el archivo JSON generado
         if os.path.exists(nombre_archivo_generado):
             os.remove(nombre_archivo_generado)
@@ -222,26 +217,14 @@ if __name__ == "__main__":
         print("\nUbicación de la tabla Iceberg:")
         #spark.sql("DESCRIBE FORMATTED local_db.aemetRawDiario").filter("col_name = 'Location'").show(truncate=False)
         location = (
-        spark.sql("DESCRIBE FORMATTED local_db.aemetRawDiario")
+        spark.sql(f"DESCRIBE FORMATTED {db_name}.{table_name}")
+            #.filter(f"{db_name}.{table_name}")
             .filter("col_name = 'Location'")
             .select("data_type")
             .collect()[0][0]
         )
         print(f"La tabla Iceberg se guardó en: {location}")
        
-        # Verificación
-        #print("\nVerificación:")
-        #print(f"- Tablas en {db_name}:")
-        #spark.sql(f"SHOW TABLES IN {db_name}").show(truncate=False)
-        #listar tablas
-        #print(f"\n- Tablas en {db_name}:", [s.name for s in spark.catalog.listTables(db_name)])
-        #print(f"\n- Tabla {table_name} existe:", spark.catalog.tableExists(f"{db_name}.{table_name}"))
-        #print(f"- Cantidad de registros en {table_name}: {spark.table(f'{db_name}.{table_name}').count()}")
-
-        
-        print(f"\n- Schema de {table_name}:")
-        spark.sql(f"DESCRIBE {db_name}.{table_name}").show(truncate=False)
-
     except Exception as e:
         print(f"\n Error: {str(e)}")
         raise e
