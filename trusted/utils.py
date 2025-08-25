@@ -27,40 +27,40 @@ def create_context() -> SparkSession:
     #.config("spark.sql.catalog.spark_catalog.warehouse", "file:///C:/Users/varga/Desktop/MasterBIGDATA_BCN/Aulas/Proyecto/TFM/TravelMind/data/warehouse") \
     return spark
 
-def create_context_trusted():
-    # Carpetas cortas y absolutas (ajústalas si quieres otra unidad)
-    # ICE_WH = r"C:\ice_wh_trusted"
-    # SPARK_TMP = r"C:\spark_tmp"
-    # os.makedirs(ICE_WH, exist_ok=True)
-    # os.makedirs(SPARK_TMP, exist_ok=True)
-    # Asegurarse de usar el mismo intérprete Python que el virtualenv/kernel
-    os.environ["PYSPARK_PYTHON"] = sys.executable
-    os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
+# def create_context_trusted():
+#     # Carpetas cortas y absolutas (ajústalas si quieres otra unidad)
+#     # ICE_WH = r"C:\ice_wh_trusted"
+#     # SPARK_TMP = r"C:\spark_tmp"
+#     # os.makedirs(ICE_WH, exist_ok=True)
+#     # os.makedirs(SPARK_TMP, exist_ok=True)
+#     # Asegurarse de usar el mismo intérprete Python que el virtualenv/kernel
+#     os.environ["PYSPARK_PYTHON"] = sys.executable
+#     os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
-    # Construye la sesión
-    spark = (
-        SparkSession.builder
-        .appName("TravelMind-Trusted")
-        # Memoria: ajústala si necesitas más
-        .config("spark.driver.memory", "4g")
-        .config("spark.executor.memory", "4g")
-        # Catálogo Iceberg explícito (Hadoop) para trusted
-        .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
-        .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1")
-        .config("spark.sql.catalog.trustedcat", "org.apache.iceberg.spark.SparkCatalog")
-        .config("spark.sql.catalog.trustedcat.type", "hadoop")
-        .config("spark.sql.catalog.spark_catalog.warehouse", "../data/warehouse")
-        #.config("spark.sql.catalog.trustedcat.warehouse", ICE_WH)
-        # Evita rutas relativas y profundas
-        #.config("spark.sql.warehouse.dir", ICE_WH)
-        #.config("spark.local.dir", SPARK_TMP)
-        # Estabilidad en Windows
-        .config("spark.sql.execution.arrow.pyspark.enabled", "false")
-        .config("spark.sql.shuffle.partitions", "64")   # evita shuffles gigantes
-        .config("spark.default.parallelism", "8")
-        .getOrCreate()
-    )
-    return spark
+#     # Construye la sesión
+#     spark = (
+#         SparkSession.builder
+#         .appName("TravelMind-Trusted")
+#         # Memoria: ajústala si necesitas más
+#         .config("spark.driver.memory", "4g")
+#         .config("spark.executor.memory", "4g")
+#         # Catálogo Iceberg explícito (Hadoop) para trusted
+#         .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
+#         .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1")
+#         .config("spark.sql.catalog.trustedcat", "org.apache.iceberg.spark.SparkCatalog")
+#         .config("spark.sql.catalog.trustedcat.type", "hadoop")
+#         .config("spark.sql.catalog.spark_catalog.warehouse", "../data/warehouse")
+#         #.config("spark.sql.catalog.trustedcat.warehouse", ICE_WH)
+#         # Evita rutas relativas y profundas
+#         #.config("spark.sql.warehouse.dir", ICE_WH)
+#         #.config("spark.local.dir", SPARK_TMP)
+#         # Estabilidad en Windows
+#         .config("spark.sql.execution.arrow.pyspark.enabled", "false")
+#         .config("spark.sql.shuffle.partitions", "64")   # evita shuffles gigantes
+#         .config("spark.default.parallelism", "8")
+#         .getOrCreate()
+#     )
+#     return spark
 
 def create_iceberg_table(spark: SparkSession, df: DataFrame, db_name: str, table_name: str):
 
