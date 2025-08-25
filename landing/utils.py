@@ -16,7 +16,7 @@ def create_context() -> SparkSession:
         .appName("IcebergWritedata") \
         .config("spark.sql.catalog.spark_catalog", "org.apache.iceberg.spark.SparkSessionCatalog") \
         .config("spark.sql.catalog.spark_catalog.type", "hadoop") \
-        .config("spark.sql.catalog.spark_catalog.warehouse", "../data/warehouse") \
+        .config("spark.sql.catalog.spark_catalog.warehouse", "./data/warehouse") \
         .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
         .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3") \
         .getOrCreate()
@@ -43,11 +43,18 @@ def get_api_endpoint_excel(spark:SparkSession,path:str,filter:str = None) -> Dat
     else:
         print(f"Error {response.status_code}: no se pudo obtener el archivo.")
 
+
+def create_iceberg_table(spark: SparkSession, df: DataFrame, db_name: str, table_name: str):
+
+    spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
+    # Guardar tabla Iceberg
+    df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").create()        
+
 def overwrite_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
 
     spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
     # Guardar tabla Iceberg
-    df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").createOrReplace()
+    df.writeTo(f"spark_catalog.{db_name}.{table_name}").createOrReplace()  
 
 def append_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
 
