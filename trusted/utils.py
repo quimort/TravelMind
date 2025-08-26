@@ -74,7 +74,7 @@ def overwrite_iceberg_table(spark: SparkSession, df: DataFrame, db_name: str, ta
 
     if spark.catalog.tableExists(full_name):
         print(f"Sobrescribiendo tabla existente: {full_name}")
-        df.writeTo(full_name).using("iceberg").overwrite()
+        df.writeTo(full_name).using("iceberg").createOrReplace()
     else:
         print(f"Tabla no existe, creando: {full_name}")
         df.writeTo(full_name).using("iceberg").createOrReplace()
