@@ -196,7 +196,15 @@ if __name__ == "__main__":
         # Mostrar resultados
         print("\n Datos cargados correctamente...")
         #print(f"\nTotal registros: {df_spark_aemet.count()}")
-        df_spark_aemet.show(5,truncate=False)
+        #df_spark_aemet.show(5,truncate=False)
+        #  Filtrar provincias de interés
+        provincias_interes = ["MADRID", "BARCELONA", "SEVILLA", "ILLES BALEARS", "BALEARES", "ALICANTE", "VALENCIA"]
+
+        dfspark_filtrado = df_spark_aemet.filter(col("provincia").isin(provincias_interes))
+
+        print(f"\nFiltrado realizado. Registros después del filtro: {dfspark_filtrado.count()}")
+        dfspark_filtrado.show(10, truncate=False)
+
         
         #         
         # 6. Guardar en Iceberg        
@@ -205,7 +213,7 @@ if __name__ == "__main__":
         table_name = "aemetRawDiario"
         # 6.2 Guardar en Iceberg (usando función utils)
         print(f"\nGuardando datos en Iceberg: {db_name}.{table_name}")
-        utils.create_iceberg_table(spark, df_spark_aemet, db_name, table_name)
+        utils.create_iceberg_table(spark, dfspark_filtrado, db_name, table_name)
         # Eliminar el archivo JSON generado
         if os.path.exists(nombre_archivo_generado):
             os.remove(nombre_archivo_generado)
