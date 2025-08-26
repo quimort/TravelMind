@@ -48,7 +48,7 @@ def create_iceberg_table(spark: SparkSession, df: DataFrame, db_name: str, table
 
     spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
     # Guardar tabla Iceberg
-    df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").create()        
+    df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").createOrReplace()        
 
 def overwrite_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
 
