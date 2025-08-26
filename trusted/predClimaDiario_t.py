@@ -88,7 +88,7 @@ def imputeNumericColumns(
     return df.select(columns_to_select)
 
 #Crear una función para imputar nulos en las columnas de tipo StringType Spark DataFrame
-def imputeStringColumns(df: "SPARK_DataFrame", replacement_value: str = "Desconocido"):
+def imputeStringColumns(df: DataFrame, replacement_value: str = "Desconocido"):
     """
     Imputa valores nulos en columnas de tipo StringType con un valor por defecto.
     """
@@ -259,13 +259,6 @@ df_daily_summary = df_exploded_days.select(
     F.col("day_data.uvMax").alias("uv_max")
 )
 
-# Show the schema and some results
-#print("\n--- Schema of df_daily_summary ---")
-#df_daily_summary.printSchema()
-
-#print("\n--- First 20 rows of df_daily_summary ---")
-#df_daily_summary.show(20, truncate=False)
-
 # Impute missing values in numeric and string columns
 # Note: This is a simplified example. In practice, you might want to handle different types of missing values differently.
 # Impute numeric columns with a constant value of -9999 
@@ -278,3 +271,5 @@ db_name = "trusted_db"
 table_name = "prediccion_clima_diario"
 
 utils.overwrite_iceberg_table(spark,df_imputed,db_name,table_name)
+
+spark.stop()
