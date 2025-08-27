@@ -22,6 +22,8 @@ def create_context() -> SparkSession:
         .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3") \
         .config("spark.driver.memory", "4g") \
         .config("spark.executor.memory", "2g") \
+        .config("spark.hadoop.hadoop.native.lib", "false")\
+        .config("spark.hadoop.io.nativeio.enabled", "false")\
         .getOrCreate()
     
     return spark
