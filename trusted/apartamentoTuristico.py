@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import upper, col, when
-import utilsJoaquim as utils
+import utils as utils
 from functools import reduce
 
 # 1) Re-use the same Iceberg-aware session for read & write
