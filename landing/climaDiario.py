@@ -7,8 +7,10 @@ from pyspark.sql import SparkSession
 from datetime import datetime, timedelta
 from pyspark.sql.types import *
 from pyspark.sql.functions import col, explode
+from http.client import RemoteDisconnected
+from requests.exceptions import ConnectionError
 
-def descargar_datos_aemet_raw(start_date, end_date, api_key, delay_seconds=0.5):
+def descargar_datos_aemet_raw(start_date, end_date, api_key, delay_seconds=5):
     """
     Descarga todos los datos climáticos de AEMET y los guarda en un único JSON.
     
@@ -63,14 +65,34 @@ def descargar_datos_aemet_raw(start_date, end_date, api_key, delay_seconds=0.5):
     for i, (start_str, end_str) in enumerate(date_intervals, 1):
         interval_url = f'{base_url}{start_str}/fechafin/{end_str}{end_url}'
         print(f"\nProcesando intervalo {i}/{len(date_intervals)}: {start_str[:10]} a {end_str[:10]}")
-
+    
         try:
+            #---Obtener URL de descarga
+            #Reintentos con backoff exponencial
             # 3.1 Obtener URL de descarga
-            response_url = requests.get(interval_url, headers=headers)
-            time.sleep(delay_seconds * 0.3)
-            
-            if response_url.status_code != 200:
-                print(f"Error en la solicitud (HTTP {response_url.status_code})")
+            for intento in range(5):  # máximo 5 intentos por intervalo
+                try:
+                    response_url = requests.get(interval_url, headers=headers)
+
+                    if response_url.status_code == 200:
+                        break
+                    elif response_url.status_code == 429:
+                        espera = (2 ** intento) * 5  # backoff exponencial: 5,10,20,40...
+                        print(f"⚠️ Límite alcanzado (429). Esperando {espera}s antes de reintentar nuevamente...")
+                        time.sleep(espera)
+                    elif response_url.status_code == 500:
+                        espera = (2 ** intento) * 3  # backoff exponencial: 5,10,20,40...
+                        print(f"⚠️ Error interno del servidor (500). Esperando {espera}s antes de reintentar nuevamente...")
+                        time.sleep(espera)
+                    else:
+                        print(f"Error HTTP {response_url.status_code} en la solicitud URL de los datos")
+                        break
+                except (RemoteDisconnected, ConnectionError) as e:
+                    espera = (2 ** intento) * 2
+                    print(f"⚠️ Conexión interrumpida ({type(e).__name__}).. Esperando {espera}s antes de reintentar nuevamente...")
+                    time.sleep(espera)
+            else:
+                print("❌ No se pudo obtener la URL de datos después de varios intentos")
                 continue
                 
             data_url = response_url.json().get('datos')
@@ -78,21 +100,37 @@ def descargar_datos_aemet_raw(start_date, end_date, api_key, delay_seconds=0.5):
                 print("No se encontró URL de datos en la respuesta")
                 continue
             
-            # 3.2 Descargar datos reales
-            response_data = requests.get(data_url)
-            if response_data.status_code == 200:
-                datos_intervalo = response_data.json()
-                all_climatological_data.extend(datos_intervalo)
-                print(f"Descargados {len(datos_intervalo)} registros (Total acumulado: {len(all_climatological_data)})")
+            # 3.2 Descargar datos reales con mismo esquema de reintentos
+            for intento in range(5):
+                try:
+                    response_data = requests.get(data_url)
+                    if response_data.status_code == 200:
+                        datos_intervalo = response_data.json()
+                        all_climatological_data.extend(datos_intervalo)
+                        print(f"✅ Descargados {len(datos_intervalo)} registros (Total acumulado: {len(all_climatological_data)})")
+                        break
+                    elif response_data.status_code in [429, 500]:
+                        espera = (2 ** intento) * 5
+                        print(f"Error {response_data.status_code} en descarga. Esperando {espera}s antes de reintentar nuevamente...")
+                        time.sleep(espera)
+                    else:
+                        print(f"Error HTTP {response_data.status_code} al descargar de datos")
+                        break
+                except (RemoteDisconnected, ConnectionError) as e:
+                    espera = (2 ** intento) * 2
+                    print(f"⚠️ {type(e).__name__} durante descarga. Reintentando en {espera}s...")
+                    time.sleep(espera)
             else:
-                print(f"Error al descargar datos (HTTP {response_data.status_code})")
+                print(f"❌ No se pudo obtener descargar los datos después de varios intentos")
             
         except Exception as e:
-            print(f"Error en el intervalo: {str(e)}")
+            print(f"Error inesperado en el intervalo: {str(e)}")
         
         finally:
-            time.sleep(delay_seconds)
+            time.sleep(delay_seconds) # AEMET es sensible: mejor dejar 5 segundos entre intervalos
+    
 
+    
     # --------------------------------------------
     # 4. Guardar todo en un único JSON
     # --------------------------------------------
@@ -133,8 +171,8 @@ API_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmcnZhcmdhcy44N0BnbWFpbC5jb20iLCJqdGki
 
 # 2. Define las fechas para la descarga
 # Aquí un ejemplo para descargar los datos de los últimos 30 días
-start_date = datetime(2020, 1, 1)
-end_date = datetime(2020, 1, 30)
+start_date = datetime(2010, 1, 1)
+end_date = datetime(2024, 12, 31)
 
 # 3. Llama a la función con los argumentos
 # y maneja la creación del contexto Spark
@@ -213,7 +251,7 @@ if __name__ == "__main__":
         table_name = "aemetRawDiario"
         # 6.2 Guardar en Iceberg (usando función utils)
         print(f"\nGuardando datos en Iceberg: {db_name}.{table_name}")
-        utils.create_iceberg_table(spark, dfspark_filtrado, db_name, table_name)
+        utils.overwrite_iceberg_table(spark, dfspark_filtrado, db_name, table_name)
         # Eliminar el archivo JSON generado
         if os.path.exists(nombre_archivo_generado):
             os.remove(nombre_archivo_generado)

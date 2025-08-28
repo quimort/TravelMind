@@ -115,6 +115,6 @@ print(f"\n DataFrame RAW creado con {df_raw_aemet.count()} registros")
 db_name = "landing_db"
 table_name = f"aemet_prediccion_{data_type}"
 
-utils.overwrite_iceberg_table(spark, df_raw_aemet, db_name, table_name)
+utils.append_iceberg_table(spark, df_raw_aemet, db_name, table_name)
 
 spark.stop()

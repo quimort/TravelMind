@@ -50,18 +50,11 @@ def create_iceberg_table(spark: SparkSession, df: DataFrame, db_name: str, table
     # Guardar tabla Iceberg
     df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").createOrReplace()        
 
-def overwrite_iceberg_table(spark, df, db_name, table_name):
-    full_name = f"spark_catalog.{db_name}.{table_name}"
-    # Comprobar si la tabla existe
-    
-    if not spark.catalog.tableExists(full_name):
-        print(f"Tabla no existe, creando tabla {full_name}...")
-        df.writeTo(full_name).using("iceberg").createOrReplace()
-        print(f" Tabla {full_name} creada en Iceberg")
-    else:
-        print(f" Tabla {full_name} ya existe. Sobrescribiendo...")
-        df.writeTo(full_name).using("iceberg").overwritePartitions()
-        print(f" Tabla {full_name} sobreescrita en Iceberg")
+def overwrite_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
+
+    spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
+    # Guardar tabla Iceberg
+    df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").createOrReplace()
 
 def append_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
 
