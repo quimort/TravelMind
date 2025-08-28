@@ -10,6 +10,14 @@ from pyspark.sql.functions import col, explode
 from http.client import RemoteDisconnected
 from requests.exceptions import ConnectionError
 
+# --- Configuración global ---
+LOG_FILE = "errores_clima.log"
+
+def log_error(start, end, error_msg):
+    """Guarda en un log los intervalos fallidos con el error."""
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(f"{start},{end},{error_msg}\n")
+
 def descargar_datos_aemet_raw(start_date, end_date, api_key, delay_seconds=5):
     """
     Descarga todos los datos climáticos de AEMET y los guarda en un único JSON.
@@ -31,6 +39,7 @@ def descargar_datos_aemet_raw(start_date, end_date, api_key, delay_seconds=5):
     base_url = 'https://opendata.aemet.es/opendata/api/valores/climatologicos/diarios/datos/fechaini/'
     end_url = '/todasestaciones'
     all_climatological_data = []
+    errores_intervals = []
     
     print(f" Iniciando descarga del período: {start_date.date()} a {end_date.date()}")
 
@@ -65,7 +74,7 @@ def descargar_datos_aemet_raw(start_date, end_date, api_key, delay_seconds=5):
     for i, (start_str, end_str) in enumerate(date_intervals, 1):
         interval_url = f'{base_url}{start_str}/fechafin/{end_str}{end_url}'
         print(f"\nProcesando intervalo {i}/{len(date_intervals)}: {start_str[:10]} a {end_str[:10]}")
-    
+        success = False  # bandera de éxito del intervalo
         try:
             #---Obtener URL de descarga
             #Reintentos con backoff exponencial
@@ -93,11 +102,13 @@ def descargar_datos_aemet_raw(start_date, end_date, api_key, delay_seconds=5):
                     time.sleep(espera)
             else:
                 print("❌ No se pudo obtener la URL de datos después de varios intentos")
+                errores_intervals.append({"start": start_str, "end": end_str, "error": "No se obtuvo URL"})
                 continue
                 
             data_url = response_url.json().get('datos')
             if not data_url:
                 print("No se encontró URL de datos en la respuesta")
+                errores_intervals.append({"start": start_str, "end": end_str, "error": "Sin URL de"})
                 continue
             
             # 3.2 Descargar datos reales con mismo esquema de reintentos
@@ -108,6 +119,7 @@ def descargar_datos_aemet_raw(start_date, end_date, api_key, delay_seconds=5):
                         datos_intervalo = response_data.json()
                         all_climatological_data.extend(datos_intervalo)
                         print(f"✅ Descargados {len(datos_intervalo)} registros (Total acumulado: {len(all_climatological_data)})")
+                        success = True
                         break
                     elif response_data.status_code in [429, 500]:
                         espera = (2 ** intento) * 5
@@ -122,13 +134,26 @@ def descargar_datos_aemet_raw(start_date, end_date, api_key, delay_seconds=5):
                     time.sleep(espera)
             else:
                 print(f"❌ No se pudo obtener descargar los datos después de varios intentos")
-            
+                errores_intervals.append({"start": start_str, "end": end_str, "error": "Falló descarga de datos"})
         except Exception as e:
             print(f"Error inesperado en el intervalo: {str(e)}")
+            errores_intervals.append({"start": start_str, "end": end_str, "error": str(e)})
         
         finally:
             time.sleep(delay_seconds) # AEMET es sensible: mejor dejar 5 segundos entre intervalos
-    
+        
+        if not success:
+            print(f"Intervalo {start_str} a {end_str} registrado en log de errores.")
+            
+    # guardar errores en un txt
+    if errores_intervals:
+        #guardar en un archivo de texto
+        with open(LOG_FILE, "w", encoding="utf-8") as f:
+            f.write("start_date,end_date,error_message\n")
+        print(f"\n⚠️ Se guardó log de errores en: {LOG_FILE}")
+    else:
+        print("\n✅ No hubo errores en la descarga")
+
 
     
     # --------------------------------------------
@@ -253,11 +278,11 @@ if __name__ == "__main__":
         print(f"\nGuardando datos en Iceberg: {db_name}.{table_name}")
         utils.overwrite_iceberg_table(spark, dfspark_filtrado, db_name, table_name)
         # Eliminar el archivo JSON generado
-        if os.path.exists(nombre_archivo_generado):
-            os.remove(nombre_archivo_generado)
-            print(f"Archivo {nombre_archivo_generado} eliminado correctamente.")
-        else:
-            print(f"Archivo {nombre_archivo_generado} no encontrado para eliminar.")
+        # if os.path.exists(nombre_archivo_generado):
+        #     os.remove(nombre_archivo_generado)
+        #     print(f"Archivo {nombre_archivo_generado} eliminado correctamente.")
+        # else:
+        #     print(f"Archivo {nombre_archivo_generado} no encontrado para eliminar.")
 
         # 6.3 Verificar ubicación de la tabla Iceberg
         print("\nUbicación de la tabla Iceberg:")
