@@ -4,6 +4,7 @@ import json
 import os
 from datetime import datetime, timedelta
 from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
 from datetime import datetime, timedelta
 from pyspark.sql.types import *
 from pyspark.sql.functions import col, explode
@@ -103,12 +104,14 @@ def descargar_datos_aemet_raw(start_date, end_date, api_key, delay_seconds=5):
             else:
                 print("❌ No se pudo obtener la URL de datos después de varios intentos")
                 errores_intervals.append({"start": start_str, "end": end_str, "error": "No se obtuvo URL"})
+                print(f"Intervalo {start_str} a {end_str} registrado en log de errores.")
                 continue
                 
             data_url = response_url.json().get('datos')
             if not data_url:
-                print("No se encontró URL de datos en la respuesta")
+                print("❌ No se encontró URL de datos en la respuesta")
                 errores_intervals.append({"start": start_str, "end": end_str, "error": "Sin URL de"})
+                print(f"Intervalo {start_str} a {end_str} registrado en log de errores.")
                 continue
             
             # 3.2 Descargar datos reales con mismo esquema de reintentos
@@ -133,7 +136,7 @@ def descargar_datos_aemet_raw(start_date, end_date, api_key, delay_seconds=5):
                     print(f"⚠️ {type(e).__name__} durante descarga. Reintentando en {espera}s...")
                     time.sleep(espera)
             else:
-                print(f"❌ No se pudo obtener descargar los datos después de varios intentos")
+                print(f"❌ No se pudo obtener/descargar los datos después de varios intentos")
                 errores_intervals.append({"start": start_str, "end": end_str, "error": "Falló descarga de datos"})
         except Exception as e:
             print(f"Error inesperado en el intervalo: {str(e)}")
@@ -150,6 +153,10 @@ def descargar_datos_aemet_raw(start_date, end_date, api_key, delay_seconds=5):
         #guardar en un archivo de texto
         with open(LOG_FILE, "w", encoding="utf-8") as f:
             f.write("start_date,end_date,error_message\n")
+            # Filas con los errores
+            for err in errores_intervals:
+                start, end, error_msg = err["start"], err["end"], err["error"]
+                f.write(f"{start},{end},{error_msg}\n")
         print(f"\n⚠️ Se guardó log de errores en: {LOG_FILE}")
     else:
         print("\n✅ No hubo errores en la descarga")
