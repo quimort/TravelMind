@@ -43,13 +43,6 @@ def get_api_endpoint_excel(spark:SparkSession,path:str,filter:str = None) -> Dat
     else:
         print(f"Error {response.status_code}: no se pudo obtener el archivo.")
 
-
-def create_iceberg_table(spark: SparkSession, df: DataFrame, db_name: str, table_name: str):
-
-    spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
-    # Guardar tabla Iceberg
-    df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").createOrReplace()        
-
 def overwrite_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
 
     spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
