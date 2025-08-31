@@ -27,13 +27,6 @@ def create_context() -> SparkSession:
     #.config("spark.sql.catalog.spark_catalog.warehouse", "file:///C:/Users/varga/Desktop/MasterBIGDATA_BCN/Aulas/Proyecto/TFM/TravelMind/data/warehouse") \
     return spark
 
-
-def create_iceberg_table(spark: SparkSession, df: DataFrame, db_name: str, table_name: str):
-
-    spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
-    # Guardar tabla Iceberg
-    df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").create()
-
 def overwrite_iceberg_table(spark: SparkSession, df: DataFrame, db_name: str, table_name: str):
     spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
     # Guardar tabla Iceberg
