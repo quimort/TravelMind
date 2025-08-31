@@ -25,10 +25,16 @@ x-airflow-common:
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
+    # Make the project available on Python path inside the container so DAGs can import
+    # the top-level `TravelMind` package from your repo root.
+    PYTHONPATH: /opt/airflow/project
   volumes:
     - .:/app
     - spark-events:/home/sparkuser/spark/events
     - ../dags:/opt/airflow/dags
+    # mount the repository root (parent of architecture/) so packages like
+    # `from TravelMind...` resolve inside Airflow containers
+    - ..:/opt/airflow/project
     - ../logs:/opt/airflow/logs
     - ../config:/opt/airflow/config
     - ../plugins:/opt/airflow/plugins
@@ -191,6 +197,8 @@ services:
       command: webserver
       ports:
         - "8090:8080"
+      environment:
+        PYTHONPATH: /opt/airflow/project
       healthcheck:
         test: ["CMD", "curl", "--fail", "http://localhost:8090/health"]
         interval: 30s
@@ -206,6 +214,8 @@ services:
   airflow-scheduler:
       <<: *airflow-common
       command: scheduler
+      environment:
+        PYTHONPATH: /opt/airflow/project
       healthcheck:
         test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
         interval: 30s
