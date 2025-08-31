@@ -257,7 +257,7 @@ if __name__ == "__main__":
     # 2. Define las fechas para la descarga
     # Aquí un ejemplo para descargar los datos de los últimos 30 días
     start_date = datetime(2024, 1, 1)
-    end_date = datetime(2024, 3, 31)
+    end_date = datetime(2024, 2, 28)
     headers = {'api_key': API_KEY}
     all_climatological_data = []
     errores_intervals = []
@@ -303,6 +303,11 @@ if __name__ == "__main__":
             StructField("velmedia", StringType()),  # velocidad media del viento
             StructField("racha", StringType()),  # ráfaga máxima
             StructField("horaracha", StringType()),
+            StructField("sol", StringType()),  # radiación solar 
+            StructField("presMax", StringType()),  # presión máxima
+            StructField("horaPresMax", StringType()),
+            StructField("presMin", StringType()),  # presión mínima
+            StructField("horaPresMin", StringType()),
             StructField("hrMedia", StringType()),  # humedad relativa media
             StructField("hrMax", StringType()),  # humedad relativa máxima
             StructField("horaHrMax", StringType()),
