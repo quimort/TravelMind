@@ -14,20 +14,21 @@ x-airflow-common:
     - sparkpg_network 
   environment:
     &airflow-common-env
-    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
-    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-postgres/airflow
-    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
-    AIRFLOW__CORE__FERNET_KEY: ''
-    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
-    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-    AIRFLOW__CORE__TEST_CONNECTION: 'Enabled'
-    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
-    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
-    _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
-    # Make the project available on Python path inside the container so DAGs can import
-    # the top-level `TravelMind` package from your repo root.
-    PYTHONPATH: /opt/airflow/project
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      # Use canonical DATABASE section key (point to airflow-postgres service)
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: 'postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow'
+      AIRFLOW__CELERY__RESULT_BACKEND: 'db+postgresql://airflow:airflow@airflow-postgres:5432/airflow'
+      AIRFLOW__CELERY__BROKER_URL: 'redis://:@redis:6379/0'
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__CORE__TEST_CONNECTION: 'Enabled'
+      AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+      AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+      _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
+      # Make the project available on Python path inside the container so DAGs can import
+      # the top-level `TravelMind` package from your repo root.
+      PYTHONPATH: /opt/airflow/project
   volumes:
     - .:/app
     - spark-events:/home/sparkuser/spark/events
@@ -198,6 +199,7 @@ services:
       ports:
         - "8090:8080"
       environment:
+        <<: *airflow-common-env
         PYTHONPATH: /opt/airflow/project
       healthcheck:
         test: ["CMD", "curl", "--fail", "http://localhost:8090/health"]
@@ -215,6 +217,7 @@ services:
       <<: *airflow-common
       command: scheduler
       environment:
+        <<: *airflow-common-env
         PYTHONPATH: /opt/airflow/project
       healthcheck:
         test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
