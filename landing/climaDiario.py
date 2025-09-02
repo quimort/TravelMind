@@ -45,7 +45,7 @@ def descargar_intervalo(start_date, end_date, headers, errores_intervals,
     start_dt = datetime.strptime(start_date[:10], "%Y-%m-%d") if isinstance(start_date, str) else start_date
     end_dt = datetime.strptime(end_date[:10], "%Y-%m-%d") if isinstance(end_date, str) else end_date
 
-    print(f"\nIniciando descarga del período: {start_dt.date()} a {end_dt.date()}")
+    #print(f"\nIniciando descarga del período: {start_dt.date()} a {end_dt.date()}")
     success = False
     try:
         # --- Obtener URL de descarga ---
@@ -155,11 +155,13 @@ def guardar_json(datos, start_date, end_date):
 # --------------------------------------------
 # 5. Reintentar intervalos fallidos
 # --------------------------------------------
-# Funcion reintentar automáticamente errores indefinidamente(hasta que no haya errores de descarga)---
+# Funcion reintentar automáticamente errores indefinidamente
+# (hasta que no haya errores de descarga)---
 def reintentar_errores(api_key: str):
     """
     Reintenta automáticamente la descarga de intervalos fallidos registrados en el log de errores.
-    Termina cuando no queden errores pendientes.
+    Termina cuando no queden errores pendientes. Se elimina el log si se completan todas las descargas.
+    Devuelve la lista de archivos JSON generados en los reintentos.
     """
     archivos_generados = []
     headers = {'api_key': api_key}
@@ -293,9 +295,13 @@ if __name__ == "__main__":
     date_intervals = generar_intervalos(start_date, end_date)
     print("\nIniciando la descarga de datos de AEMET...")
     print(f"\nSe procesarán {len(date_intervals)} intervalos de 15 días")
-
+    total_intervalos=len(date_intervals)
     # Descargar todos los intervalos
-    for start_str, end_str in date_intervals:
+    for idx, (start_str, end_str) in enumerate(date_intervals,start=1):
+        start_dt = datetime.strptime(start_str[:10], "%Y-%m-%d")
+        end_dt = datetime.strptime(end_str[:10], "%Y-%m-%d")
+
+        print(f"\nProcensando intervalo {idx}/{total_intervalos}: {start_dt.date()} a {end_dt.date()}")
         descargar_intervalo(start_str, end_str, headers, errores_intervals, all_climatological_data)
 
     # Guardar errores y JSON
