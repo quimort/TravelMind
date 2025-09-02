@@ -52,8 +52,8 @@ if __name__ == "__main__":
     ("3195", "Madrid, Retiro", "Madrid", "Madrid", 667, "402443N", "034041W"),
     ("5783", "Sevilla Aeropuerto", "Sevilla", "Sevilla", 34, "372500N", "055245W"),
     ("5790Y", "Sevilla, Tablada", "Sevilla", "Sevilla", 9, "372151N", "060021W"),
-    ("8416Y", "Valencia", "Valencia", "València/Valencia", 11, "392850N", "002159W"),
-    ("8416X", "Valencia, UPV", "València", "València/Valencia", 6, "392847N", "002013W")
+    ("8416Y", "Valencia", "Valencia", "Comunitat Valenciana", 11, "392850N", "002159W"),
+    ("8416X", "Valencia, UPV", "València", "Comunitat Valenciana", 6, "392847N", "002013W")
     ]
     
     schema = StructType([
@@ -69,12 +69,13 @@ if __name__ == "__main__":
     df_estaciones = spark.createDataFrame(data_estaciones_objetivo, schema)
     
     # ---- 2. Normalizar nombres de municipios a mayúsculas ----
-    df_estaciones = df_estaciones.withColumn("municipio", upper(df_estaciones["municipio"]))
+    #df_estaciones = df_estaciones.withColumn("municipio", upper(df_estaciones["municipio"]))
 
     # ---- 3. Seleccionar columnas relevantes de estaciones ----
     df_estaciones_select = df_estaciones.select(
         F.col("id").alias("id"),
         F.col("municipio").alias("municipio"),
+        F.col("provincia").alias("provincia"),
         F.col("latitud").alias("latitud"),
         F.col("longitud").alias("longitud")
     )
@@ -84,22 +85,54 @@ if __name__ == "__main__":
     landing_filtered = df_landing.filter(F.col("indicativo").isin(id_list))
 
     #seleccionar columnas de landing que estan duplicadas
-    landing_filtered= landing_filtered.select(
-        "indicativo", "nombre", "provincia", "altitud", "tmed", "prec", 
-        "tmin", "horatmin", "tmax", "horatmax", "dir", "velmedia", "racha", "horaracha",
-        "sol", "presMax", "horaPresMax","presMin", "horaPresMin","hrMedia",
-        "hrMax","horaHrMax","hrMin","horaHrMin","fecha_dt", "year", "month")  
+    landing_filtered= landing_filtered.select("indicativo","nombre","altitud",
+                                              "tmed","prec","tmin","horatmin","tmax","horatmax",
+                                              "dir","velmedia","racha","horaracha","sol","presMax","horaPresMax",
+                                              "presMin","horaPresMin","hrMedia","hrMax","horaHrMax","hrMin","horaHrMin",
+                                              "fecha_dt","year","month")
+
 
     # ---- 5. Join con estaciones ----
     df_filtrado = landing_filtered.join(df_estaciones_select.withColumnRenamed("id", "id_estacion"),
                                        landing_filtered["indicativo"] == F.col("id_estacion"),
-                                         "left").drop("id_estacion")
+                                         "left").drop("id_estacion") \
+        .select(
+            F.col("fecha_dt").alias("fecha"),
+            F.col("indicativo").alias("idema"), 
+            F.col("nombre").alias("nombreEstacion"),
+            F.col("municipio").alias("municipio"),
+            F.col("provincia").alias("provincia"),
+            F.col("altitud").alias("altitud"),
+            F.col("tmed").alias("temperaturaMedia"), 
+            F.col("prec").alias("precipitacion"), 
+            F.col("tmin").alias("temperaturaMinima"), 
+            F.col("horatmin").alias("horaTemperaturaMinima"), 
+            F.col("tmax").alias("temperaturaMaxima"), 
+            F.col("horatmax").alias("horaTemperaturaMaxima"), 
+            F.col("dir").alias("direccionViento"), 
+            F.col("velmedia").alias("velocidadMediaViento"),
+            F.col("racha").alias("racha"),
+            F.col("horaracha").alias("horaRacha"),
+            F.col("sol").alias("radiacionSolar"),
+            F.col("presMax").alias("presionMaxima"),
+            F.col("horaPresMax").alias("horaPresionMaxima"),
+            F.col("presMin").alias("presionMinima"),
+            F.col("horaPresMin").alias("horaPresionMinima"),
+            F.col("hrMedia").alias("humedaRelativaMedia"),
+            F.col("hrMax").alias("humedadRelativaMaxima"),
+            F.col("horaHrMax").alias("horaHumedadRelativaMaxima"),
+            F.col("hrMin").alias("humedadRelativaMinima"),
+            F.col("horaHrMin").alias("horaHumedadRelativaMinima"),
+            F.col("year").alias("year"),
+            F.col("month").alias("month"))
 
     # ---- 6. Limpieza básica ---- 
     print("Reemplazando comas a puntos en columnas numéricas...")
-    df_clean = replace_commas_with_dots(df_filtrado, ["tmed", "prec", "tmin", "tmax",
-                                                       "dir", "velmedia", "racha", "sol", 
-                                                       "presMax", "presMin", "hrMedia","hrMax","hrMin"])
+    df_clean = replace_commas_with_dots(df_filtrado, ["temperaturaMedia", "precipitacion", "temperaturaMinima",
+                                                       "temperaturaMaxima",
+                                                       "direccionViento", "vevelocidadMediaViento", "racha", 
+                                                       "radiacionSolar", "presionMaxima", "presionMinima", 
+                                                       "humedaRelativaMedia", "humedadRelativaMaxima","humedadRelativaMinima"])
     #print("Mostrando 10 registros de CLEAN:")
     #df_clean.show(10, truncate=False)
 
