@@ -155,32 +155,59 @@ def guardar_json(datos, start_date, end_date):
 # --------------------------------------------
 # 5. Reintentar intervalos fallidos
 # --------------------------------------------
-# Funcion reintentar automáticamente errores ---
-def reintentar_errores(api_key):
+# Funcion reintentar automáticamente errores indefinidamente(hasta que no haya errores de descarga)---
+def reintentar_errores(api_key: str):
+    """
+    Reintenta automáticamente la descarga de intervalos fallidos registrados en el log de errores.
+    Termina cuando no queden errores pendientes.
+    """
     archivos_generados = []
+    headers = {'api_key': api_key}
+
+    # --- Verificación inicial ---
     if not os.path.exists(LOG_FILE):
         print("\n✅ No hay archivo de errores, nada que reintentar.")
         return archivos_generados
-    
-    print("\n🔄 Reintentando descargas fallidas desde el log...")
-    with open(LOG_FILE, "r", encoding="utf-8") as f:
-        next(f) # Saltar cabecera
-        errores =  [line.strip().split(",") for line in f.readlines()]
-    
-    if not errores:
-        print("✅ El log de errores está vacío.")
-        return archivos_generados
-    
-    headers = {'api_key': api_key}
-    for start_str, end_str, _ in errores:
-        all_data = []
-        descargar_intervalo(start_str, end_str, headers, [], all_data)
-        start_date = datetime.strptime(start_str[:10], "%Y-%m-%d")
-        end_date = datetime.strptime(end_str[:10], "%Y-%m-%d")
-        if all_data:
-            archivo_json = guardar_json(all_data, datetime.strptime(start_str[:10], "%Y-%m-%d"), datetime.strptime(end_str[:10], "%Y-%m-%d"))
-            archivos_generados.append(archivo_json)
+
+    while True:
+        print("\n🔄 Reintentando descargas fallidas desde el log...")
+
+        # Leer log de errores
+        with open(LOG_FILE, "r", encoding="utf-8") as f:
+            next(f)  # Saltar cabecera
+            errores = [line.strip().split(",") for line in f.readlines()]
+
+        if not errores:
+            print("✅ No quedan errores por reintentar. Descargas completas.")
+            break
+
+        print(f"⚠️ Se encontraron {len(errores)} intervalos pendientes. Reintentando...")
+
+        nuevos_errores = []
+        for start_str, end_str, _ in errores:
+            all_data = []
+            # Pasamos todos los argumentos requeridos
+            descargar_intervalo(start_str, end_str, headers, nuevos_errores, all_data)
+
+            if all_data:
+                start_date = datetime.strptime(start_str[:10], "%Y-%m-%d")
+                end_date = datetime.strptime(end_str[:10], "%Y-%m-%d")
+                archivo_json = guardar_json(all_data, start_date, end_date)
+                archivos_generados.append(archivo_json)
+
+        # Guardar errores actualizados si hay fallos restantes
+        if nuevos_errores:
+            guardar_errores(nuevos_errores)
+        else:
+            print("✅ Todos los intervalos pendientes se descargaron correctamente.")
+            # Borrar log si ya no quedan errores
+            if os.path.exists(LOG_FILE):
+                os.remove(LOG_FILE)
+            break
+
     return archivos_generados
+
+
 # --------------------------------------------
 # 6. Cargar JSON a SPARK/Iceberg con particionado o sin particionado
 # --------------------------------------------
@@ -229,7 +256,7 @@ def cargar_json_a_iceberg(spark, archivojson, esquema, db_name, table_name, batc
             .withColumn("month", F.month("fecha_dt"))
         )
         utils.append_iceberg_table(spark, df, db_name, table_name)
-        print("Datos agregados en una sola carga.")
+        print("\nDatos agregados en una sola carga.")
     # --- Verificar ubicación de la tabla Iceberg ---
     location = (
     spark.sql(f"DESCRIBE FORMATTED {db_name}.{table_name}")
@@ -264,8 +291,8 @@ if __name__ == "__main__":
 
     # Generar intervalos
     date_intervals = generar_intervalos(start_date, end_date)
-    print("Iniciando la descarga de datos de AEMET...")
-    print(f"Se procesarán {len(date_intervals)} intervalos de 15 días")
+    print("\nIniciando la descarga de datos de AEMET...")
+    print(f"\nSe procesarán {len(date_intervals)} intervalos de 15 días")
 
     # Descargar todos los intervalos
     for start_str, end_str in date_intervals:
