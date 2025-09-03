@@ -12,6 +12,8 @@ xgboost = "*"
 scikit-learn = "==1.4.2"
 pyarrow = ">=4.0.0"
 mlflow = "==3.0.0"
+jupyter = "*"
+ipykernel = "*"
 
 [dev-packages]
 pyspark = "==3.5.6"
