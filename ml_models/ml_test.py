@@ -183,25 +183,17 @@ if __name__ == "__main__":
     df_calidad_features      = create_air_quality_features(df_calidad)
     df_trafico_features      = create_trafico_features(df_trafico)
 
-    #print("  Joining datasets...")
-#
-    ## Join de los datasets
-    #join_cols = ["PROVINCIA", "AÑO", "MES"]
-    #df_joined = (
-    #    df_trafico.alias("t") 
-    #    .join(df_ocio.alias("o"), join_cols, "left") 
-    #    .join(df_calidad.alias("c"), join_cols, "left") 
-    #    .join(df_apartamentos.alias("h"), join_cols, "left")
-    #    .groupBy(join_cols)
-    #    .agg(
-    #        sum("IMD_VEHICULO_TOTAL").alias("VEHICULO_TOTAL"),
-    #        sum("ENTRADAS").alias("ENTRADAS"),
-    #        avg("PORCENTAJE_CALIDAD_AIRE").alias("PORCENTAJE_CALIDAD_AIRE"),
-    #        avg("ESTANCIA_MEDIA").alias("ESTANCIA_MEDIA"),
-    #        sum("VIAJEROS").alias("VIAJEROS")
-    #    )
-    #)
-    #print(f"    Joined records: {df_joined.count()}")
+    print("  Joining datasets...")
 
-    #df_joined.show(5,truncate=False)
+    # Join de los datasets
+    join_cols = ["PROVINCIA", "AÑO", "MES"]
+    df_joined = (
+        df_trafico_features.alias("t") 
+        .join(df_ocio_features.alias("o"), join_cols, "left") 
+        .join(df_calidad_features.alias("c"), join_cols, "left") 
+        .join(df_apartamentos_features.alias("h"), join_cols, "left")
+    )
+    print(f"    Joined records: {df_joined.count()}")
+    df_joined.printSchema()
+    df_joined.show(1,truncate=False)
     # Manejo de
