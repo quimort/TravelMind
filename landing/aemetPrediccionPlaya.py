@@ -42,11 +42,11 @@ def descargar_prediccion_playa(api_key: str, playa: dict,
                                max_intentos=3, delay_seconds=5, timeout_seconds=10):
     """
     Descarga la predicción AEMET para una playa.
-    data_type puede ser 'diaria' o 'horaria'.
     """
     playa_id = playa["id_playa"]
     playa_name = playa["nombre_playa"]
     municipio = playa["nombre_municipio"]
+    provincia = playa["nombre_provincia"]
     url_inicial = f"https://opendata.aemet.es/opendata/api/prediccion/especifica/playa/{playa_id}"
     headers = {"accept": "application/json", "api_key": api_key}
 
@@ -94,6 +94,7 @@ def descargar_prediccion_playa(api_key: str, playa: dict,
                         "playa_codigo_aemet": playa_id,
                         "nombre_playa": playa_name,
                         "nombre_municipio": municipio,
+                        "nombre_provincia": provincia,
                         "fecha_descarga_utc": datetime.datetime.utcnow().isoformat(),
                         "raw_aemet_data_json": response_data.json()
                     }
@@ -146,27 +147,28 @@ def reintentar_errores_playas(api_key):
         print(f"\n 🔄 Reintentando {len(errores)} playas fallidas...")
         nuevos_errores = []
         for err in errores:
-            if len(err) < 3:
+            if len(err) < 4:
                 print(f"⚠️ Línea inválida en log: {err}")
                 continue
 
-            code, playa_name, municipio  = err[0], err[1], err[2]
+            code, playa_name, municipio, provincia  = err[0], err[1], err[2], err[3]
             playa_dict = {
                 "id_playa": code,
                 "nombre_playa": playa_name,
-                "nombre_municipio": municipio
+                "nombre_municipio": municipio,
+                "nombre_provincia": provincia
             }
             data = descargar_prediccion_playa(api_key, playa_dict)
             if data:
                 list_of_raw_jsons.append(data)
             else:
-                nuevos_errores.append((code, playa_name, municipio, "Reintento fallido"))
+                nuevos_errores.append((code, playa_name, municipio, provincia, "Reintento fallido"))
 
         # Reescribir log
         if nuevos_errores:
             with open(LOG_PLAYAS, "w", encoding="utf-8") as f:
-                for code, playa_name, municipio, msg_error in nuevos_errores:
-                    f.write(f"{code},{playa_name}, {municipio}, {msg_error}\n")
+                for code, playa_name, municipio, provincia, msg_error in nuevos_errores:
+                    f.write(f"{code},{playa_name}, {municipio}, {provincia}, {msg_error}\n")
         else:
             if os.path.exists(LOG_PLAYAS):  
                 os.remove(LOG_PLAYAS)
@@ -182,6 +184,7 @@ if __name__ == "__main__":
     for _, row in playas.iterrows():
         nombre_playa = row["nombre_playa"]
         municipio = row["nombre_municipio"]
+        provincia = row["nombre_provincia"]
         print(f"\nObteniendo datos para {nombre_playa} de {municipio}...")
         data = descargar_prediccion_playa(AEMET_API_KEY, row.to_dict())
         if data:
@@ -199,6 +202,7 @@ if __name__ == "__main__":
     schema = StructType([
         StructField("playa_codigo_aemet", StringType(), True),
         StructField("nombre_municipio", StringType(), True),
+        StructField("nombre_provincia", StringType(), True),
         StructField("fecha_descarga_utc", StringType(), True),
         StructField("raw_aemet_data_json_str", StringType(), True),
         ])
@@ -208,6 +212,7 @@ if __name__ == "__main__":
             (
                 item["playa_codigo_aemet"],
                 item["nombre_municipio"],
+                item["nombre_provincia"],
                 item["fecha_descarga_utc"],
                 json.dumps(item["raw_aemet_data_json"], ensure_ascii=False),
             )
@@ -218,7 +223,7 @@ if __name__ == "__main__":
 
     #Mostra mensaje de lista de datos guaradados con exito
     print(f"\n DataFrame RAW de Playas creado con {df_raw_aemet.count()} registros")
-    #df_raw_aemet.show(5, truncate=False)
+    df_raw_aemet.show(5, truncate=False)
 
     # --- Guardar en Iceberg ---
     landing_db = "landing_db"
