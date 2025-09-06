@@ -72,8 +72,8 @@ def imputeNumericColumns(
         print("No se encontraron ni seleccionaron columnas numéricas para la imputación según los criterios. No se realizaron cambios.")
         return df
 
-    print(f"Imputando NULLs en columans numéricas con valor constante: '{constant_value}'...")
-    print(f"Columns affectadas: {', '.join(numeric_cols_for_imputation)}")
+    print(f"Imputando NULLs en columnas numéricas con valor constante: '{constant_value}'...")
+    print(f"Las columnas numéricas imputadas en el DataSet son: {', '.join(numeric_cols_for_imputation)}")
 
     columns_to_select = []
     for column_name in df.columns:
@@ -128,9 +128,9 @@ spark = utils.create_context()
 landing_db = "landing_db"
 tbl_landing = "aemet_prediccion_diaria"
 #Leemos los datos de la tabla iceberg
-print(f" Leyendo tabla RAW: spark_catalog.{landing_db}.{tbl_landing}")
+print(f" \nLeyendo tabla RAW: spark_catalog.{landing_db}.{tbl_landing}")
 df_raw_aemet= utils.read_iceberg_table(spark,db_name=landing_db,table_name=tbl_landing)
-#df_raw_aemet = spark.read.format("iceberg").load(f"spark_catalog.{landing_db}.{tbl_landing}")
+#print(f" \nCantidad de registros en tabla {tbl_landing}:", df_raw_aemet.count())
 
 # Define the schema for the nested JSON string in 'raw_aemet_data_json_str'
 aemet_data_schema = ArrayType(StructType([
@@ -221,10 +221,10 @@ def get_period_value(col_name, value_field="value"):
 
 # Select and extract the desired data, focusing on the '00-24' period for relevant arrays
 df_daily_summary = df_exploded_days.select(
-    F.col("municipio_codigo_aemet"),
-    F.col("nombre_municipio_ine"),
-    F.col("fecha_descarga_utc"),
-    F.col("day_data.fecha").alias("prediccion_fecha"),
+    F.col("municipio_codigo_aemet").alias("municipioCodigo"),
+    F.col("nombre_municipio_ine").alias("nombreMunicipio"),
+    F.col("fecha_descarga_utc").alias("fechaDescargaUTC"),
+    F.col("day_data.fecha").alias("fechaPrediccion"),
 
     # Probabilidad de precipitación 00-24
     get_period_value("day_data.probPrecipitacion", "value").alias("probPrecipitacion_00_24"),
@@ -272,4 +272,9 @@ table_name = "prediccion_clima_diario"
 
 utils.overwrite_iceberg_table(spark,df_imputed,db_name,table_name)
 
+tbl=utils.read_iceberg_table(spark,db_name,table_name)
+
+#mostrar cantidad de registros
+print(f"Cantidad de registros en la tabla {db_name}.{table_name}: {tbl.count()}")
+tbl.show(5,truncate=False)
 spark.stop()
