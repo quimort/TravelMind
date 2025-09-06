@@ -19,6 +19,7 @@ def create_context() -> SparkSession:
         .config("spark.sql.catalog.spark_catalog.warehouse", "./data/warehouse") \
         .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
         .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3") \
+        .config("spark.sql.caseSensitive", "true") \
         .config("spark.sql.parquet.enableVectorizedReader", "false") \
         .config("spark.executor.memory", "4g") \
         .config("spark.memory.offHeap.enabled", "true") \
