@@ -109,7 +109,7 @@ def descargar_prediccion_municipio(api_key: str, municipio_code: str, municipio_
                                        error= f"Falló descarga de datos")
 
     except Exception as e:
-        print(f"Error inesperado en el intervalo: {str(e)}")
+        print(f"Error inesperado en el municipio {municipio_name}: {str(e)}")
         registrar_error_municipio(code=municipio_code,
                                        name=municipio_name,
                                        error= str(e))
@@ -152,7 +152,7 @@ def reintentar_errores_municipios(api_key):
             if len(err)<2:
                 print(f"Línea invalida en log: {err}")
                 continue
-            code, name = err[0], err[1]
+            code, name, = err[0], err[1]
             data = descargar_prediccion_municipio(api_key, code, name, data_type='diaria')
             if data:
                 list_of_raw_jsons.append(data)
