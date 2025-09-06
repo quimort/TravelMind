@@ -93,6 +93,7 @@ def descargar_prediccion_playa(api_key: str, playa: dict,
                     return {
                         "playa_codigo_aemet": playa_id,
                         "nombre_playa": playa_name,
+                        "nombre_municipio": municipio,
                         "fecha_descarga_utc": datetime.datetime.utcnow().isoformat(),
                         "raw_aemet_data_json": response_data.json()
                     }
@@ -172,22 +173,57 @@ def reintentar_errores_playas(api_key):
 
     return list_of_raw_jsons
 
-
+data_type = "playa"
 # --- MAIN ---
 if __name__ == "__main__":
     print("\n🚀 Descargando datos de playas...")
-    resultados = []
-
+    list_of_raw_jsons = []
+   
     for _, row in playas.iterrows():
         nombre_playa = row["nombre_playa"]
         municipio = row["nombre_municipio"]
         print(f"\nObteniendo datos para {nombre_playa} de {municipio}...")
         data = descargar_prediccion_playa(AEMET_API_KEY, row.to_dict())
         if data:
-            resultados.append(data)
+            list_of_raw_jsons.append(data)
         time.sleep(API_CALL_DELAY_SECONDS)
 
     print("\n🔁 Reintentando errores...")
-    resultados += reintentar_errores_playas(AEMET_API_KEY)
+    list_of_raw_jsons += reintentar_errores_playas(AEMET_API_KEY)
 
-    print(f"\n✅ Descargas finalizadas. Total datos descargados: {len(resultados)}")
+    print(f"\n✅ Descargas finalizadas. Total datos descargados: {len(list_of_raw_jsons)}")
+
+# --- Crear DataFrame de Spark ---
+    spark = utils.create_context()
+
+    schema = StructType([
+        StructField("playa_codigo_aemet", StringType(), True),
+        StructField("nombre_municipio", StringType(), True),
+        StructField("fecha_descarga_utc", StringType(), True),
+        StructField("raw_aemet_data_json_str", StringType(), True),
+        ])
+    
+    df_raw_aemet = spark.createDataFrame(
+        [
+            (
+                item["playa_codigo_aemet"],
+                item["nombre_municipio"],
+                item["fecha_descarga_utc"],
+                json.dumps(item["raw_aemet_data_json"], ensure_ascii=False),
+            )
+            for item in list_of_raw_jsons
+        ],
+        schema=schema
+    )
+
+    #Mostra mensaje de lista de datos guaradados con exito
+    print(f"\n DataFrame RAW de Playas creado con {df_raw_aemet.count()} registros")
+    #df_raw_aemet.show(5, truncate=False)
+
+    # --- Guardar en Iceberg ---
+    landing_db = "landing_db"
+    landing_table = f"aemet_prediccion_{data_type}"
+
+    utils.append_iceberg_table(spark, df_raw_aemet, landing_db, landing_table)
+    #mostrar datos guardados
+    spark.stop()
