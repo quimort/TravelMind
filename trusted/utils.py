@@ -16,31 +16,22 @@ def create_context() -> SparkSession:
         .appName("IcebergWritedata") \
         .config("spark.sql.catalog.spark_catalog", "org.apache.iceberg.spark.SparkSessionCatalog") \
         .config("spark.sql.catalog.spark_catalog.type", "hadoop") \
-        .config("spark.sql.catalog.spark_catalog.warehouse", "C:/Users/Joaquim Balletbo/OneDrive/Documents/AAmaster_UPC/TFM/TravelMind/data/warehouse") \
+        .config("spark.sql.catalog.spark_catalog.warehouse", "./data/warehouse") \
         .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
         .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3") \
-        .config("spark.hadoop.fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem")\
-        .config("spark.hadoop.parquet.enable.summary-metadata", "false")\
-        .config("spark.hadoop.fs.localfile.impl.disable.cache", "true")\
+        .config("spark.sql.caseSensitive", "true") \
+        .config("spark.sql.parquet.enableVectorizedReader", "false") \
+        .config("spark.executor.memory", "4g") \
+        .config("spark.memory.offHeap.enabled", "true") \
+        .config("spark.memory.offHeap.size", "2g") \
         .getOrCreate()
-    
-    
+    #.config("spark.sql.catalog.spark_catalog.warehouse", "file:///C:/Users/varga/Desktop/MasterBIGDATA_BCN/Aulas/Proyecto/TFM/TravelMind/data/warehouse") \
     return spark
 
-def overwrite_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
-
+def overwrite_iceberg_table(spark: SparkSession, df: DataFrame, db_name: str, table_name: str):
     spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
     # Guardar tabla Iceberg
     df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").createOrReplace()
-
-def append_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
-
-    if check_table_exists(spark,db_name,table_name):
-        spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
-        # Guardar tabla Iceberg
-        df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").append()
-    else:
-        overwrite_iceberg_table(spark,df,db_name,table_name)
 
 def merge_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str,primary_key:list):
 

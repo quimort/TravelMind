@@ -17,7 +17,7 @@ def create_context() -> SparkSession:
         .appName("IcebergWritedata") \
         .config("spark.sql.catalog.spark_catalog", "org.apache.iceberg.spark.SparkSessionCatalog") \
         .config("spark.sql.catalog.spark_catalog.type", "hadoop") \
-        .config("spark.sql.catalog.spark_catalog.warehouse", "C:/Users/Joaquim Balletbo/OneDrive/Documents/AAmaster_UPC/TFM/TravelMind/data/warehouse") \
+        .config("spark.sql.catalog.spark_catalog.warehouse", "./data/warehouse") \
         .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
         .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3") \
         .config("spark.hadoop.fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem")\
@@ -128,14 +128,34 @@ def overwrite_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_na
     # Guardar tabla Iceberg
     df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").createOrReplace()
 
-def append_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
+# def append_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str):
 
-    if check_table_exists(spark,db_name,table_name):
-        spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
-        # Guardar tabla Iceberg
-        df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").append()
+#     if check_table_exists(spark,db_name,table_name):
+#         spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
+#         # Guardar tabla Iceberg
+#         df.writeTo(f"spark_catalog.{db_name}.{table_name}").using("iceberg").append()
+#     else:
+#         overwrite_iceberg_table(spark,df,db_name,table_name)
+
+def append_iceberg_table(spark: SparkSession, df:DataFrame, db_name: str, table_name: str):
+    """
+    Inserta datos en una tabla Iceberg. 
+    - Si la tabla existe → hace append. 
+    - Si no existe → la crea.
+    """
+    full_name = f"spark_catalog.{db_name}.{table_name}"
+    #Crear base de datos si no existe
+    spark.sql(f"CREATE DATABASE IF NOT EXISTS spark_catalog.{db_name}")
+
+    if check_table_exists(spark, db_name, table_name):
+        print(f"\n📥 Tabla '{full_name}' existe → haciendo APPEND...")
+        df.writeTo(full_name).using("iceberg").append()
     else:
+        #tabla no existe -> crearla
+        print(f"\n🆕 Tabla '{full_name}' no existe → creando tabla...")
         overwrite_iceberg_table(spark,df,db_name,table_name)
+    
+    print(f"\n✅ Datos guardados en la tabla Iceberg: {full_name}")
 
 def merge_iceberg_table(spark:SparkSession,df:DataFrame,db_name:str,table_name:str,primary_key:list):
 
@@ -172,6 +192,18 @@ def create_merge_condition(primary_key:list) -> str:
     condition = condition[:-5]
     return condition
 
-def check_table_exists(spark:SparkSession,db_name:str,table_name:str)->bool:
+# def check_table_exists(spark:SparkSession,db_name:str,table_name:str)->bool:
 
-    return spark.catalog.tableExists(tableName=table_name,dbName=db_name)
+#     return spark.catalog.tableExists(tableName=table_name,dbName=db_name)
+
+def check_table_exists(spark: SparkSession, db_name: str, table_name: str) -> bool:
+    """
+    Verifica si una tabla Iceberg existe en el catálogo de Spark.
+    Retorna True si existe, False en caso contrario.
+    """
+    full_name = f"{db_name}.{table_name}"
+    try:
+        return spark.catalog.tableExists(full_name)
+    except Exception as e:
+        print(f"⚠️ No se pudo verificar la tabla {full_name}: {e}")
+        return False
