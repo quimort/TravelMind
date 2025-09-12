@@ -1,0 +1,45 @@
+FROM apache/airflow:2.10.4
+
+RUN pip install apache-airflow-providers-apache-spark
+
+USER root
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends openjdk-17-jdk
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Fix JAVA_HOME to point to the correct location
+ENV JAVA_HOME="/usr/lib/jvm/java-17-openjdk-arm64"
+ENV SPARK_HOME="/home/sparkuser/spark"
+ENV PATH="${JAVA_HOME}/bin:${SPARK_HOME}/bin:${SPARK_HOME}/sbin:${PATH}"
+
+# Port master will be exposed
+ENV SPARK_MASTER_PORT="7077"
+# Name of master container and also counts as hostname
+ENV SPARK_MASTER_HOST="spark-master"
+
+RUN mkdir -p ${SPARK_HOME}
+RUN curl https://dlcdn.apache.org/spark/spark-3.5.6/spark-3.5.6-bin-hadoop3.tgz -o spark-3.5.6-bin-hadoop3.tgz \
+    && tar xvzf spark-3.5.6-bin-hadoop3.tgz --directory ${SPARK_HOME} --strip-components 1 \
+    && rm -rf spark-3.5.6-bin-hadoop3.tgz
+
+RUN useradd -u 1000 -m -d /home/sparkuser sparkuser
+ENV HOME="/home/sparkuser"
+RUN chown -R airflow:sparkuser ${SPARK_HOME}
+
+RUN apt update
+RUN apt-get -y install procps
+
+COPY ./architecture/spark-defaults.conf "${SPARK_HOME}/conf"
+
+## Do not COPY the full project into the image when using Option 1.
+## The repository will be mounted at runtime into /opt/airflow/project so
+## the live workspace is used. This avoids build-time copies that can mask
+## local changes and ensures the container uses the developer files.
+
+# Do not run pip as root here (the base image expects package installs to run as
+# the 'airflow' user). We keep the project copied so you can either mount the
+# repo and use PYTHONPATH or install packages at container startup via
+# _PIP_ADDITIONAL_REQUIREMENTS or an entrypoint script.
+
+# switch to airflow user for runtime
+USER airflow
