@@ -28,9 +28,15 @@ provinces = ["Madrid", "Barcelona", "Sevilla", "Illes Balears", "Valencia"]
 # === Expand quarterly data → monthly ===
 # Create mappings: 3→[1,2], 6→[4,5], 9→[7,8], 12→[10,11]
 def expand_month(df_quarter, quarter, fill_months):
-    return [df_quarter.filter(col("MES") == quarter).withColumn("MES", lit(m)) for m in fill_months]
+    base = df_quarter.filter(col("MES") == quarter)
+    return [
+        base.withColumn("MES", lit(m))
+            .withColumn("TASA_DELITOS", lit(-99))
+            .withColumn("TASA_DELITOS_ESPAÑA", lit(-99))
+        for m in fill_months
+    ]
 
-# Collect expansions
+# Collect expansions (now filled with -99 instead of copied values)
 expansions = []
 expansions += expand_month(df_clean, 3, [1, 2])
 expansions += expand_month(df_clean, 6, [4, 5])
