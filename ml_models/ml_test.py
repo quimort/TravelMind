@@ -277,9 +277,9 @@ if __name__ == "__main__":
 
     # Grid de hiperparámetros
     paramGrid = (ParamGridBuilder()
-        .addGrid(xgb.getParam("max_depth"), [3, 5, 7])
-        .addGrid(xgb.getParam("learning_rate"), [0.05, 0.1, 0.2])
-        .addGrid(xgb.getParam("n_estimators"), [50, 100])  # en lugar de num_boost_round
+        .addGrid(xgb.getParam("max_depth"), [3, 5])
+        .addGrid(xgb.getParam("learning_rate"), [0.1])
+        .addGrid(xgb.getParam("n_estimators"), [50]) 
         .build()
     )
 
@@ -288,7 +288,7 @@ if __name__ == "__main__":
         estimator=pipeline,
         estimatorParamMaps=paramGrid,
         evaluator=evaluator,
-        numFolds=3,
+        numFolds=2,
         parallelism=2
     )
     with mlflow.start_run() as run:
@@ -338,7 +338,15 @@ if __name__ == "__main__":
         mlflow.log_metric("accuracy", acc)
 
         # Loggear modelo Spark
-        mlflow.spark.log_model(model, "spark_xgb_model")
+        best_model = model.bestModel  # extraer el mejor del CrossValidator
+        mlflow.spark.log_model(best_model, "spark_xgb_model")
+
+        # Registrar en el Model Registry con un nombre legible
+        mlflow.register_model(
+            model_uri=f"runs:/{run.info.run_id}/spark_xgb_model",
+            name="travelmind_xgb_model"
+        )
+        model.bestModel.write().overwrite().save("models/travelmind_xgb_model")
 
         print("Modelo registrado en MLflow con run_id:", run.info.run_id)
     
