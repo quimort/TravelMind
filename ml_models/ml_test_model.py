@@ -11,6 +11,7 @@ from pyspark.ml import Pipeline
 from builtins import min as python_min
 import mlflow
 import mlflow.spark
+from pyspark.ml.pipeline import PipelineModel
 
 def start_spark():
     spark = utils.create_context()
@@ -23,4 +24,6 @@ model_uri = "models:/travelmind_xgb_model/1"   # versión 1
 # O bien, si usas alias:
 # model_uri = "models:/travelmind_xgb_model/Production"
 
-loaded_model = mlflow.spark.load_model(model_uri)
+save_path = "file:///D:/Quim/Documents/quim documents/Master/TFM/TravelMind/ml_models/models/travelmind_xgb_model"
+
+loaded_model = PipelineModel.load(save_path)

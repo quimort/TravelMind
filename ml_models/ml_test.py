@@ -346,7 +346,8 @@ if __name__ == "__main__":
             model_uri=f"runs:/{run.info.run_id}/spark_xgb_model",
             name="travelmind_xgb_model"
         )
-        model.bestModel.write().overwrite().save("models/travelmind_xgb_model")
+        save_path = "file:///D:/Quim/Documents/quim documents/Master/TFM/TravelMind/ml_models/models/travelmind_xgb_model"
+        model.bestModel.write().overwrite().save(save_path)
 
         print("Modelo registrado en MLflow con run_id:", run.info.run_id)
     

@@ -408,5 +408,7 @@ FodyWeavers.xsd
 Pipfile.lock
 data/*
 ml_models/mlruns/*
+ml_models/models/*
+models/*
 mlruns/*
 .vscode/settings.json

@@ -24,6 +24,7 @@ def create_context() -> SparkSession:
         .config("spark.executor.memory", "2g") \
         .config("spark.hadoop.hadoop.native.lib", "false")\
         .config("spark.hadoop.io.nativeio.enabled", "false")\
+        .config("spark.hadoop.fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem") \
         .getOrCreate()
     
     return spark
