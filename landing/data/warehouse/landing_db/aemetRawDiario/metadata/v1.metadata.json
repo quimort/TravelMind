@@ -1,0 +1,163 @@
+{
+  "format-version" : 2,
+  "table-uuid" : "83c96d0f-8d4d-42bc-b70c-16a8e215b0ad",
+  "location" : "./data/warehouse/landing_db/aemetRawDiario",
+  "last-sequence-number" : 1,
+  "last-updated-ms" : 1755873465686,
+  "last-column-id" : 20,
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "fecha",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 2,
+      "name" : "indicativo",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "nombre",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 4,
+      "name" : "provincia",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 5,
+      "name" : "altitud",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 6,
+      "name" : "tmed",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 7,
+      "name" : "prec",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 8,
+      "name" : "tmin",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "horatmin",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "tmax",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "horatmax",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 12,
+      "name" : "dir",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 13,
+      "name" : "velmedia",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 14,
+      "name" : "racha",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 15,
+      "name" : "horaracha",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "hrMedia",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "hrMax",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 18,
+      "name" : "horaHrMax",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 19,
+      "name" : "hrMin",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 20,
+      "name" : "horaHrMin",
+      "required" : false,
+      "type" : "string"
+    } ]
+  } ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "owner" : "Freddy Vargas",
+    "write.parquet.compression-codec" : "zstd"
+  },
+  "current-snapshot-id" : 1497168608686355068,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 1497168608686355068,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "sequence-number" : 1,
+    "snapshot-id" : 1497168608686355068,
+    "timestamp-ms" : 1755873465686,
+    "summary" : {
+      "operation" : "overwrite",
+      "spark.app.id" : "local-1755872774165",
+      "added-data-files" : "1",
+      "added-records" : "25797",
+      "added-files-size" : "421513",
+      "changed-partition-count" : "1",
+      "total-records" : "25797",
+      "total-files-size" : "421513",
+      "total-data-files" : "1",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "data/warehouse/landing_db/aemetRawDiario/metadata/snap-1497168608686355068-1-8f8728bd-56d2-4db9-873d-9702ef8469a9.avro",
+    "schema-id" : 0
+  } ],
+  "statistics" : [ ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1755873465686,
+    "snapshot-id" : 1497168608686355068
+  } ],
+  "metadata-log" : [ ]
+}

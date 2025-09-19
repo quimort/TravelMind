@@ -1,4 +1,4 @@
-from pyspark.sql.functions import upper, col, when
+from pyspark.sql.functions import col, when, lit
 import utilsJoaquim as utils
 
 # 1) Re-use the same Iceberg-aware session for read & write
@@ -25,24 +25,72 @@ df_clean = df_clean.withColumn(
 # 3) Provinces of interest
 provinces = ["Madrid", "Barcelona", "Sevilla", "Illes Balears", "Valencia"]
 
-# Check province by province
-for prov in provinces:
-    count = df_clean.filter(col("PROVINCIA") == prov).count()
-    if count > 0:
-        print(f"✅ Found {count} rows for {prov}")
-    else:
-        print(f"⚠️ No data found for {prov}")
+# === Expand quarterly data → monthly ===
+# Create mappings: 3→[1,2], 6→[4,5], 9→[7,8], 12→[10,11]
+def expand_month(df_quarter, quarter, fill_months):
+    base = df_quarter.filter(col("MES") == quarter)
+    return [
+        base.withColumn("MES", lit(m))
+            .withColumn("TASA_DELITOS", lit(-99))
+            .withColumn("TASA_DELITOS_ESPAÑA", lit(-99))
+        for m in fill_months
+    ]
 
-# Create final filtered DataFrame with all provinces
-df_filtered = df_clean.filter(col("PROVINCIA").isin(provinces))
+# Collect expansions (now filled with -99 instead of copied values)
+expansions = []
+expansions += expand_month(df_clean, 3, [1, 2])
+expansions += expand_month(df_clean, 6, [4, 5])
+expansions += expand_month(df_clean, 9, [7, 8])
+expansions += expand_month(df_clean, 12, [10, 11])
+
+# Union everything
+df_filled = df_clean
+for e in expansions:
+    df_filled = df_filled.unionByName(e)
+
+# 4) Province checks (use df_filled consistently!)
+print("\n=== Province Data Quality Report ===")
+
+for prov in provinces:
+    df_prov_original = df.filter(col("PROVINCIA") == prov)
+    count_total = df_prov_original.count()
+
+    df_prov_clean = df_filled.filter(col("PROVINCIA") == prov)
+    count_clean = df_prov_clean.count()
+
+    if count_clean > 0:
+        df_months = df_prov_clean.select("AÑO", "MES").distinct()
+
+        first_row = df_months.orderBy("AÑO", "MES").first()
+        last_row = df_months.orderBy(col("AÑO").desc(), col("MES").desc()).first()
+
+        first_year, first_month = first_row["AÑO"], int(first_row["MES"])
+        last_year, last_month = last_row["AÑO"], int(last_row["MES"])
+
+        total_months_expected = (last_year - first_year) * 12 + (last_month - first_month + 1)
+        total_months_present = df_months.count()
+        missing_months = total_months_expected - total_months_present
+
+        print(f"✅ {prov}")
+        print(f"   - Total rows before cleaning: {count_total}")
+        print(f"   - Rows after monthly expansion: {count_clean}")
+        print(f"   - Distinct months present: {total_months_present}")
+        print(f"   - Expected months: {total_months_expected}")
+        print(f"   - Missing months: {missing_months}")
+        print(f"   - First instance → AÑO={first_year}, MES={first_month:02d}")
+        print(f"   - Last instance  → AÑO={last_year}, MES={last_month:02d}\n")
+    else:
+        print(f"⚠️ {prov}: No data after cleaning\n")
+
+# 5) Save final table
+df_filtered = df_filled.filter(col("PROVINCIA").isin(provinces)).orderBy("AÑO", "MES")
 
 df_filtered.show()
 
-# 4) Write into trusted zone (single table with only these provinces)
 tgt_db, tgt_tbl = "trusted", "seguridad_provincia_selected"
 print(f"→ Writing spark_catalog.{tgt_db}.{tgt_tbl}")
 utils.overwrite_iceberg_table(spark, df_filtered, tgt_db, tgt_tbl)
 
-print("✅ Trusted load complete.")
+print("✅ Trusted load complete (monthly data expanded).")
 
 spark.stop()
