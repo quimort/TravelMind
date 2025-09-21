@@ -10,7 +10,7 @@ from pyspark.sql import SparkSession
 # =========================
 AEMET_API_KEY = os.getenv("AEMET_API_KEY")  # O coloca tu API key directamente
 DB_NAME = "landing_db"
-TABLE_NAME = "aemet_climatologia_diaria_idema"
+TABLE_NAME = "aemetClimaDiario"
 
 
 # =========================
