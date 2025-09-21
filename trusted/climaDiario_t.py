@@ -271,10 +271,10 @@ if __name__ == "__main__":
              )
     # Escribir la tabla limpia en Iceberg
     print(f"Guardando datos limpios en Iceberg: {db_trusted}.{tbl_trusted}")
-    #utils.overwrite_iceberg_table(spark, df_imputed, db_name=db_trusted, table_name=tbl_trusted)
-    if spark.catalog.tableExists(dbName=db_trusted, tableName=tbl_trusted):
-        spark.sql(f"DROP TABLE spark_catalog.{db_trusted}.{tbl_trusted}")
-        df_imputed.writeTo(f"spark_catalog.{db_trusted}.{tbl_trusted}").using("iceberg").create()
+    utils.overwrite_iceberg_table(spark, df_imputed, db_name=db_trusted, table_name=tbl_trusted)
+    # if spark.catalog.tableExists(dbName=db_trusted, tableName=tbl_trusted):
+    #     spark.sql(f"DROP TABLE spark_catalog.{db_trusted}.{tbl_trusted}")
+    #     df_imputed.writeTo(f"spark_catalog.{db_trusted}.{tbl_trusted}").using("iceberg").create()
 
     #mostrar donde se guado la tabla
     print(f"Datos guardados en spark_catalog.{db_trusted}.{tbl_trusted}")

@@ -91,8 +91,21 @@ def descargar_intervalo(start_date, end_date, headers, errores_intervals,
                 response_data = requests.get(data_url, timeout=timeout_seconds)
                 if response_data.status_code == 200:
                     datos_intervalo = response_data.json()
-                    all_climatological_data.extend(datos_intervalo)
-                    print(f"✅ Descargados {len(datos_intervalo)} registros (Total acumulado: {len(all_climatological_data)})")
+                    # 🚑 Manejo robusto para evitar strings sueltos
+                    if isinstance(datos_intervalo, list):
+                        all_climatological_data.extend(
+                            [d for d in datos_intervalo if isinstance(d, dict)]
+                        )
+                    elif isinstance(datos_intervalo, dict):
+                        if "indicativo" in datos_intervalo:
+                            all_climatological_data.append(datos_intervalo)
+                        else:
+                            print(f"⚠️ Dict inesperado sin 'indicativo': {datos_intervalo}")
+                    else:
+                        print(f"⚠️ Formato inesperado en respuesta: {type(datos_intervalo)} -> {datos_intervalo}")
+
+                    print(f"✅ Descargados {len(all_climatological_data)} registros acumulados hasta ahora "
+                          f"({len(datos_intervalo) if isinstance(datos_intervalo, list) else 1} en este intervalo)")
                     success = True
                     break
                 elif response_data.status_code in [429, 500]:
@@ -136,6 +149,8 @@ def guardar_errores(errores_intervals):
 # 4. Guardar datos completos en JSON
 # --------------------------------------------
 def guardar_json(datos, start_date, end_date):
+    datos = [d for d in datos if isinstance(d, dict) and 'indicativo' in d]  # limpieza extra
+    
     archivojson = f"aemet_unificado_{start_date.date()}_{end_date.date()}.json"
     datos_completos = {
         'metadata': {
@@ -285,8 +300,8 @@ if __name__ == "__main__":
 
     # 2. Define las fechas para la descarga
     # Aquí un ejemplo para descargar los datos de los últimos 30 días
-    start_date = datetime(2024, 1, 1)
-    end_date = datetime(2024, 2, 28)
+    start_date = datetime(2010, 1, 1)
+    end_date = datetime(2024, 12, 31)
     headers = {'api_key': API_KEY}
     all_climatological_data = []
     errores_intervals = []
