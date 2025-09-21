@@ -19,7 +19,18 @@ def statr_experiment():
 def start_spark():
     spark = utils.create_context()
     return spark
-
+def convert_time_to_decimal(col_name):
+    return (
+        (split(col(col_name), ":").getItem(0).cast("double")) + 
+        (split(col(col_name), ":").getItem(1).cast("double") / 60.0)
+    )
+def convert_decimal_to_time(col_name):
+    hours = floor(col(col_name)).cast("int")
+    minutes = round((col(col_name) - hours) * 60).cast("int")
+    
+    return (
+        format_string("%02d:%02d", hours, minutes)
+    )
 def create_apartment_features(df_apartments):
     """Create apartment-based features."""
     print("  Creating apartment features...")
@@ -128,6 +139,66 @@ def create_trafico_features(df_trafico):
 
     return df_trafico_features
 
+def crate_clima_features(df_clima:DataFrame):
+
+    
+    df_clima = (
+        df_clima
+        .withColumn("horaTemperaturaMinima_dec", convert_time_to_decimal("horaTemperaturaMinima")) 
+        .withColumn("horaTemperaturaMaxima_dec", convert_time_to_decimal("horaTemperaturaMaxima")) 
+        .groupBy(
+            col("month"),
+            col("year"),
+            col("provincia")
+        ).agg(
+            avg("temperaturaMedia").alias("temp_media_mes"),
+    
+            # Precipitaciones
+            sum("precipitacion").alias("precipitacion_total_mes"),
+            count(when(col("precipitacion") > 0, 1)).alias("dias_lluvia_mes"),
+            
+            # Temperatura mínima y máxima
+            avg("temperaturaMinima").alias("temp_min_media_mes"),
+            min("temperaturaMinima").alias("temp_min_abs_mes"),
+            avg("temperaturaMaxima").alias("temp_max_media_mes"),
+            max("temperaturaMaxima").alias("temp_max_abs_mes"),
+            
+            # Rangos térmicos
+            (avg("temperaturaMaxima") - avg("temperaturaMinima")).alias("rango_termico_medio"),
+            (max("temperaturaMaxima") - min("temperaturaMinima")).alias("rango_termico_extremo"),
+            
+            # Extra: número de días cálidos / fríos
+            count(when(col("temperaturaMaxima") > 30, 1)).alias("dias_calidos"),
+            count(when(col("temperaturaMinima") < 0, 1)).alias("dias_helada"),
+            avg("horaTemperaturaMinima_dec").alias("hora_temp_min_media"),
+            avg("horaTemperaturaMaxima_dec").alias("hora_temp_max_media")
+        )
+    )
+
+    df_clima = (
+        df_clima
+        .withColumn("hora_temp_min_media", convert_decimal_to_time("hora_temp_min_media"))
+        .withColumn("hora_temp_max_media", convert_decimal_to_time("hora_temp_max_media"))
+        .select(
+            col("year").alias("AÑO"),
+            col("month").alias("MES"),
+            col("provincia").alias("PROVINCIA"),
+            col("temp_media_mes"),
+            col("precipitacion_total_mes"),
+            col("dias_lluvia_mes"),
+            col("temp_min_media_mes"),
+            col("temp_min_abs_mes"),
+            col("temp_max_media_mes"),
+            col("temp_max_abs_mes"),
+            col("rango_termico_medio"),
+            col("rango_termico_extremo"),
+            col("dias_calidos"),
+            col("dias_helada"),
+            col("hora_temp_min_media"),
+            col("hora_temp_max_media")
+        )
+    )
+    return df_clima
 
 if __name__ == "__main__":
     statr_experiment()
@@ -175,6 +246,14 @@ if __name__ == "__main__":
     )
     print(f"    Trafico records: {df_trafico.count()}")
 
+    print("  Loading clima diario data...")
+    df_clima_diario = utils.read_iceberg_table(
+        spark=spark,
+        db_name="trusted_db",
+        table_name="aemetClimaDiarioTrusted"
+    )
+    print(f" clima diario records: {df_clima_diario.count()}")
+
     #2. Generar features a partir de df_hotels
     print("=== Generating features ===")
 
@@ -183,6 +262,7 @@ if __name__ == "__main__":
     df_ocio_features         = create_leisure_features(df_ocio)
     df_calidad_features      = create_air_quality_features(df_calidad)
     df_trafico_features      = create_trafico_features(df_trafico)
+    df_clima_features        = crate_clima_features(df_clima_diario)
 
     print("  Joining datasets...")
 
@@ -193,6 +273,7 @@ if __name__ == "__main__":
         .join(df_ocio_features.alias("o"), join_cols, "left") 
         .join(df_calidad_features.alias("c"), join_cols, "left") 
         .join(df_apartamentos_features.alias("h"), join_cols, "left")
+        .join(df_clima_features.alias("cl"), join_cols, "left")
     )
     print(f"    Joined records: {df_joined.count()}")
     
@@ -208,23 +289,44 @@ if __name__ == "__main__":
     print("Umbrales tráfico:", traf_p33, traf_p66)
     print("Umbrales aire:", aire_p33, aire_p66)
     print("Umbrales alojamiento:", apt_p33, apt_p66)
-
+    # Definir percentiles previamente calculados de temperatura y precipitación
+    temp_p10 = 5   # ejemplo: 10ºC
+    temp_p90 = 30  # ejemplo: 30ºC
+    dias_lluvia = 10  # ejemplo: 10mm (percentil 66)
     # 2. Definir la label binaria
     df_labeled = df_joined.withColumn(
         "label",
         when(
             (col("trafico_imd_total") > traf_p66) |
             (col("aire_pct_buena") < aire_p33) |
-            (col("apt_availability_score") < apt_p33),
+            (col("apt_availability_score") < apt_p33) |
+            (col("temp_media_mes") < temp_p10) |   
+            (col("temp_media_mes") > temp_p90) |   
+            (col("dias_lluvia_mes") > dias_lluvia),
             0  # Malo
         ).otherwise(1)  # Bueno
     )
 
     feature_cols = [
-        "apt_viajeros","apt_pernoctaciones","apt_estancia_media","apt_estimados","plazas_estimadas","apt_personal_empleado",
-        "trafico_imd_total","ocio_total_entradas","ocio_gasto_total","ocio_precio_medio_entrada","aire_pct_buena","aire_pct_aceptable",
-        "aire_pct_mala"
+        # Turismo
+        "apt_viajeros", "apt_pernoctaciones", "apt_estancia_media", "apt_estimados",
+        "plazas_estimadas", "apt_personal_empleado",
+        
+        # Tráfico
+        "trafico_imd_total",
+        
+        # Ocio
+        "ocio_total_entradas", "ocio_gasto_total", "ocio_precio_medio_entrada",
+        
+        # Calidad del aire
+        "aire_pct_buena", "aire_pct_aceptable", "aire_pct_mala",
+        
+        # Clima
+        "temp_media_mes", "temp_min_abs_mes", "temp_max_media_mes",
+        "precipitacion_total_mes", "dias_lluvia_mes",
+        "dias_calidos", "dias_helada"
     ]
+
     df_labeled = df_labeled.fillna(0, subset=feature_cols)
     # VectorAssembler para convertir a vector de features
     assembler = VectorAssembler(
