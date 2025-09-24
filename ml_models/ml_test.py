@@ -7,7 +7,7 @@ from pyspark.ml.evaluation import BinaryClassificationEvaluator
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from xgboost.spark import SparkXGBClassifier
-from pyspark.ml import Pipeline
+from pyspark.ml import Pipeline,PipelineModel
 from builtins import min as python_min
 import mlflow
 import mlflow.spark
@@ -380,7 +380,7 @@ if __name__ == "__main__":
     # Grid de hiperparámetros
     paramGrid = (ParamGridBuilder()
         .addGrid(xgb.getParam("max_depth"), [3, 5])
-        .addGrid(xgb.getParam("learning_rate"), [0.1])
+        .addGrid(xgb.getParam("learning_rate"), [0.1,0.01])
         .addGrid(xgb.getParam("n_estimators"), [50]) 
         .build()
     )
@@ -441,6 +441,9 @@ if __name__ == "__main__":
 
         # Loggear modelo Spark
         best_model = model.bestModel  # extraer el mejor del CrossValidator
+        # If best_model is a stage instead of PipelineModel
+        if not isinstance(best_model, PipelineModel):
+            best_model = PipelineModel(stages=[best_model])
         mlflow.spark.log_model(best_model, "spark_xgb_model")
 
         # Registrar en el Model Registry con un nombre legible
@@ -448,8 +451,6 @@ if __name__ == "__main__":
             model_uri=f"runs:/{run.info.run_id}/spark_xgb_model",
             name="travelmind_xgb_model"
         )
-        save_path = "file:///D:/Quim/Documents/quim documents/Master/TFM/TravelMind/ml_models/models/travelmind_xgb_model"
-        model.bestModel.write().overwrite().save(save_path)
 
         print("Modelo registrado en MLflow con run_id:", run.info.run_id)
     

@@ -1,6 +1,5 @@
 from pyspark.sql import SparkSession
 from pyspark.ml.feature import VectorAssembler
-from pyspark.ml import Pipeline
 import utils as utils
 from pyspark.sql.functions import *
 from pyspark.ml.evaluation import BinaryClassificationEvaluator
@@ -19,11 +18,6 @@ def start_spark():
 
 
 spark = start_spark()
-# Última versión registrada
-model_uri = "models:/travelmind_xgb_model/1"   # versión 1
-# O bien, si usas alias:
-# model_uri = "models:/travelmind_xgb_model/Production"
 
-save_path = "file:///D:/Quim/Documents/quim documents/Master/TFM/TravelMind/ml_models/models/travelmind_xgb_model"
-
-loaded_model = PipelineModel.load(save_path)
+model_path = r"D:\Quim\Documents\quim documents\Master\TFM\TravelMind\mlruns\877728602478804183\25a24a3fc3124ec7968a25f25bb26ed2\artifacts\spark_xgb_model"
+model = PipelineModel.load(model_path)
