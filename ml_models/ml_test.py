@@ -1,4 +1,4 @@
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession,Row,DataFrame
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml import Pipeline
 import utils as utils
@@ -310,7 +310,7 @@ if __name__ == "__main__":
     feature_cols = [
         # Turismo
         "apt_viajeros", "apt_pernoctaciones", "apt_estancia_media", "apt_estimados",
-        "plazas_estimadas", "apt_personal_empleado",
+        "plazas_estimadas", "apt_personal_empleado","apt_availability_score",
         
         # Tráfico
         "trafico_imd_total",
@@ -456,5 +456,25 @@ if __name__ == "__main__":
     
     # Supongamos que queremos predecir para Barcelona, 20/09/2025
     ciudad = "Barcelona"
-    fecha = "2025-09-20"
+    fecha = "2025-09-18"
     year, month, day = map(int, fecha.split("-"))
+
+    future_df = (
+        df_labeled
+        .filter(
+            (col("PROVINCIA") == ciudad) &
+            (col("MES") == month)
+        )
+        .groupBy("PROVINCIA", "MES")
+        .agg(
+            *[avg(c).alias(c) for c in feature_cols]
+        )
+        .withColumn("AÑO", lit(year))
+    )
+
+    prediction = best_model.transform(future_df)
+
+    # Mostrar resultado
+    prediction.select(
+        "AÑO", "MES", "prediction", "probability"
+    ).show(truncate=False)

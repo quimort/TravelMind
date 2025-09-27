@@ -19,5 +19,5 @@ def start_spark():
 
 spark = start_spark()
 
-model_path = r"D:\Quim\Documents\quim documents\Master\TFM\TravelMind\mlruns\877728602478804183\25a24a3fc3124ec7968a25f25bb26ed2\artifacts\spark_xgb_model"
+model_path = r"file:///D:/Quim/Documents/quim documents/Master/TFM/TravelMind/mlruns/877728602478804183/fc61f2e59db3497f9d166864e4d02bb8/artifacts/spark_xgb_model/sparkml"
 model = PipelineModel.load(model_path)
