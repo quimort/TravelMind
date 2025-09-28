@@ -11,6 +11,7 @@ from pyspark.ml import Pipeline,PipelineModel
 from builtins import min as python_min
 import mlflow
 import mlflow.spark
+from datetime import date
 
 
 def statr_experiment():
@@ -60,11 +61,12 @@ def create_apartment_features(df_apartments):
 def create_leisure_features(df_leisure):
     """Create leisure-based features from actividades_ocio table."""
     print("  Creating leisure features...")
-
     df_leisure_features = df_leisure.groupBy(
         col("AÑO"),
         col("MES"),
-        col("PROVINCIA")
+        col("PROVINCIA"),
+        col("PRODUCTO"),
+        col("CATEGORIA")
     ).agg(
         sum("ENTRADAS").alias("ocio_total_entradas"),
         sum("VISITAS_PAGINAS").alias("ocio_total_visitas_paginas"),
@@ -86,7 +88,6 @@ def create_leisure_features(df_leisure):
 def create_air_quality_features(df_air):
     """Create air quality features from calidad_aire table."""
     print("  Creating air quality features...")
-
     df_air_features = df_air.groupBy(
         col("AÑO"),
         col("MES"),
@@ -119,7 +120,8 @@ def create_trafico_features(df_trafico):
     df_trafico_features = df_trafico.groupBy(
         col("AÑO"),
         col("MES"),
-        col("PROVINCIA")
+        col("PROVINCIA"),
+        col("DIA_SEMANA")
     ).agg(
         # Intensidad media de vehículos ligeros en el mes
         avg("IMD_VEHICULO_LIGERO").alias("trafico_imd_ligeros"),
@@ -135,13 +137,20 @@ def create_trafico_features(df_trafico):
         # Ratio de pesados sobre total (indicador económico-logístico)
         "trafico_pct_pesados",
         col("trafico_imd_pesados") / (col("trafico_imd_total") + 1e-6)
+    ).withColumn(
+        "dia_numero",
+         when(col("DIA_SEMANA") == "Lunes", 1)
+        .when(col("DIA_SEMANA") == "Martes", 2)
+        .when(col("DIA_SEMANA") == "Miércoles", 3)
+        .when(col("DIA_SEMANA") == "Jueves", 4)
+        .when(col("DIA_SEMANA") == "Viernes", 5)
+        .when(col("DIA_SEMANA") == "Sábado", 6)
+        .when(col("DIA_SEMANA") == "Domingo", 7)
     )
-
     return df_trafico_features
 
 def crate_clima_features(df_clima:DataFrame):
 
-    
     df_clima = (
         df_clima
         .withColumn("horaTemperaturaMinima_dec", convert_time_to_decimal("horaTemperaturaMinima")) 
@@ -264,6 +273,12 @@ if __name__ == "__main__":
     df_trafico_features      = create_trafico_features(df_trafico)
     df_clima_features        = crate_clima_features(df_clima_diario)
 
+    print(f"apartamento features:{df_apartamentos_features.count()}")
+    print(f"ocio features:{df_ocio_features.count()}")
+    print(f"calidad aire features:{df_calidad_features.count()}")
+    print(f"trafico features:{df_trafico_features.count()}")
+    print(f"clima features:{df_clima_features.count()}")
+
     print("  Joining datasets...")
 
     # Join de los datasets
@@ -300,8 +315,8 @@ if __name__ == "__main__":
             (col("trafico_imd_total") > traf_p66) |
             (col("aire_pct_buena") < aire_p33) |
             (col("apt_availability_score") < apt_p33) |
-            (col("temp_media_mes") < temp_p10) |   
-            (col("temp_media_mes") > temp_p90) |   
+            (col("temp_min_media_mes") < temp_p10) |   
+            (col("temp_max_media_mes") > temp_p90) |   
             (col("dias_lluvia_mes") > dias_lluvia),
             0  # Malo
         ).otherwise(1)  # Bueno
@@ -322,7 +337,7 @@ if __name__ == "__main__":
         "aire_pct_buena", "aire_pct_aceptable", "aire_pct_mala",
         
         # Clima
-        "temp_media_mes", "temp_min_abs_mes", "temp_max_media_mes",
+        "temp_media_mes", "temp_min_media_mes", "temp_max_media_mes",
         "precipitacion_total_mes", "dias_lluvia_mes",
         "dias_calidos", "dias_helada"
     ]
@@ -365,6 +380,7 @@ if __name__ == "__main__":
 
     # 6. Entrenar modelo
     train_df, test_df = df_labeled.randomSplit([0.8, 0.2], seed=42)
+    print(f"number of considered registers: {df_labeled.count()}")
     #model = pipeline.fit(train)
     #
     ## 7. Evaluar modelo
@@ -393,6 +409,7 @@ if __name__ == "__main__":
         numFolds=2,
         parallelism=2
     )
+
     with mlflow.start_run() as run:
         # Entrenar
         model = crossval.fit(train_df)
@@ -458,14 +475,19 @@ if __name__ == "__main__":
     ciudad = "Barcelona"
     fecha = "2025-09-18"
     year, month, day = map(int, fecha.split("-"))
+    # Crear objeto date
+    d = date(year, month, day)
 
+    # Obtener número del día (lunes=1 ... domingo=7)
+    num_dia = d.weekday() + 1
     future_df = (
         df_labeled
         .filter(
             (col("PROVINCIA") == ciudad) &
-            (col("MES") == month)
+            (col("MES") == month) &
+            (col("dia_numero") == num_dia)
         )
-        .groupBy("PROVINCIA", "MES")
+        .groupBy("PROVINCIA", "MES","dia_numero")
         .agg(
             *[avg(c).alias(c) for c in feature_cols]
         )
@@ -475,6 +497,16 @@ if __name__ == "__main__":
     prediction = best_model.transform(future_df)
 
     # Mostrar resultado
-    prediction.select(
-        "AÑO", "MES", "prediction", "probability"
-    ).show(truncate=False)
+    prediction.select("PROVINCIA","MES","AÑO","prediction","probability").show(truncate=False)
+
+    # Aplica el modelo
+    preds = best_model.transform(test_df)
+
+    # Filtra los casos que el modelo predijo como "Bueno" (1)
+    preds_buenos = preds.filter(col("prediction") == 1)
+
+    # Muestra algunos resultados
+    print(preds_buenos.count())
+    print(preds.count())
+    preds_buenos.select("AÑO", "MES","PROVINCIA","dia_numero", "prediction", "probability").show(20, truncate=False)
+    
