@@ -14,6 +14,7 @@ pyarrow = ">=4.0.0"
 mlflow = "==3.0.0"
 jupyter = "*"
 ipykernel = "*"
+tensorflow = "==2.20.0"
 
 [dev-packages]
 pyspark = "==3.5.6"

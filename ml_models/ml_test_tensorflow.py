@@ -3,14 +3,17 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.ml import Pipeline
 import utils as utils
 from pyspark.sql.functions import *
-from pyspark.ml.evaluation import BinaryClassificationEvaluator
-from pyspark.ml.tuning import CrossValidator, ParamGridBuilder
-from pyspark.ml.evaluation import MulticlassClassificationEvaluator
-from xgboost.spark import SparkXGBClassifier
-from pyspark.ml import Pipeline,PipelineModel
-from builtins import min as python_min
+import pandas as pd
 import mlflow
-import mlflow.spark
+import mlflow.sklearn
+import xgboost as xgb
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.metrics import (
+    accuracy_score, roc_auc_score, f1_score, precision_score, recall_score
+)
+from collections import Counter
+from collections import Counter
+from builtins import min as python_min
 from datetime import date
 
 
@@ -343,170 +346,109 @@ if __name__ == "__main__":
     ]
 
     df_labeled = df_labeled.fillna(0, subset=feature_cols)
-    # VectorAssembler para convertir a vector de features
-    assembler = VectorAssembler(
-        inputCols=feature_cols,
-        outputCol="features"
-    )
-    # Contar positivos (label=1) y negativos (label=0)
-    counts = df_labeled.groupBy("label").count().collect()
+    df_pd = df_labeled.toPandas()
 
-    # Inicializamos variables
-    num_positivos = 0
-    num_negativos = 0
-
-    for row in counts:
-        if row['label'] == 1:
-            num_positivos = row['count']
-        else:
-            num_negativos = row['count']
-
-    # Ratio para scale_pos_weight
-    ratio_negativos_sobre_positivos = num_negativos / num_positivos
-    # 4. Definir modelo XGBoost
-    xgb = SparkXGBClassifier(
-        features_col="features",       # <- snake_case
-        label_col="label",
-        prediction_col="prediction",
-        probability_col="probability",
-        num_round=50,
-        max_depth=5,
-        eta=0.1,
-        scale_pos_weight=ratio_negativos_sobre_positivos
-    )
-
-    # 5. Construir pipeline
-    pipeline = Pipeline(stages=[assembler, xgb])
-
-    # 6. Entrenar modelo
-    train_df, test_df = df_labeled.randomSplit([0.8, 0.2], seed=42)
-    print(f"number of considered registers: {df_labeled.count()}")
-    #model = pipeline.fit(train)
-    #
-    ## 7. Evaluar modelo
-    #predictions = model.transform(test)
-    #predictions.select("año", "mes", "label", "probability", "prediction").show(10, truncate=False)
-    # Evaluador
-    evaluator = MulticlassClassificationEvaluator(
-        labelCol="label",
-        predictionCol="prediction",
-        metricName="accuracy"
-    )
-
-    # Grid de hiperparámetros
-    paramGrid = (ParamGridBuilder()
-        .addGrid(xgb.getParam("max_depth"), [3, 5])
-        .addGrid(xgb.getParam("learning_rate"), [0.1,0.01])
-        .addGrid(xgb.getParam("n_estimators"), [50]) 
-        .build()
-    )
-
-    # CrossValidator
-    crossval = CrossValidator(
-        estimator=pipeline,
-        estimatorParamMaps=paramGrid,
-        evaluator=evaluator,
-        numFolds=2,
-        parallelism=2
-    )
-
-    with mlflow.start_run() as run:
-        # Entrenar
-        model = crossval.fit(train_df)
-        preds = model.transform(test_df)
-
-        # Evaluación
-        evaluator = MulticlassClassificationEvaluator(
-            labelCol="label", predictionCol="prediction", metricName="accuracy"
-        )
-        acc = evaluator.evaluate(preds)
-        # AUC
-        evaluator_auc = BinaryClassificationEvaluator(
-            labelCol="label", rawPredictionCol="prediction", metricName="areaUnderROC"
-        )
-        auc = evaluator_auc.evaluate(preds)
-
-        # F1
-        evaluator_f1 = MulticlassClassificationEvaluator(
-            labelCol="label", predictionCol="prediction", metricName="f1"
-        )
-        f1 = evaluator_f1.evaluate(preds)
-
-        # Precision
-        evaluator_precision = MulticlassClassificationEvaluator(
-            labelCol="label", predictionCol="prediction", metricName="weightedPrecision"
-        )
-        precision = evaluator_precision.evaluate(preds)
-
-        # Recall
-        evaluator_recall = MulticlassClassificationEvaluator(
-            labelCol="label", predictionCol="prediction", metricName="weightedRecall"
-        )
-        recall = evaluator_recall.evaluate(preds)
-
-        print(f"Accuracy: {acc:.3f}")
-        print(f"AUC: {auc:.3f}")
-        print(f"F1: {f1:.3f}")
-        print(f"Precision: {precision:.3f}")
-        print(f"Recall: {recall:.3f}")
-        # Log de parámetros, métricas y modelo
-        mlflow.log_param("max_depth", 5)
-        mlflow.log_param("eta", 0.1)
-        mlflow.log_param("num_round", 50)
-        mlflow.log_param("scale_pos_weight", ratio_negativos_sobre_positivos)
-        mlflow.log_metric("accuracy", acc)
-
-        # Loggear modelo Spark
-        best_model = model.bestModel  # extraer el mejor del CrossValidator
-        # If best_model is a stage instead of PipelineModel
-        if not isinstance(best_model, PipelineModel):
-            best_model = PipelineModel(stages=[best_model])
-        mlflow.spark.log_model(best_model, "spark_xgb_model")
-
-        # Registrar en el Model Registry con un nombre legible
-        mlflow.register_model(
-            model_uri=f"runs:/{run.info.run_id}/spark_xgb_model",
-            name="travelmind_xgb_model"
-        )
-
-        print("Modelo registrado en MLflow con run_id:", run.info.run_id)
     
-    # Supongamos que queremos predecir para Barcelona, 20/09/2025
-    ciudad = "Barcelona"
-    fecha = "2025-10-01"
-    year, month, day = map(int, fecha.split("-"))
-    # Crear objeto date
-    d = date(year, month, day)
+X = df_pd[feature_cols].values
+y = df_pd["label"].astype(int).values
 
-    # Obtener número del día (lunes=1 ... domingo=7)
-    num_dia = d.weekday() + 1
-    future_df = (
-        df_labeled
-        .filter(
-            (col("PROVINCIA") == ciudad) &
-            (col("MES") == month) &
-            (col("dia_numero") == num_dia)
-        )
-        .groupBy("PROVINCIA", "MES","dia_numero")
-        .agg(
-            *[avg(c).alias(c) for c in feature_cols]
-        )
-        .withColumn("AÑO", lit(year))
+# Split 80/20 (como randomSplit de Spark)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# --- 3) Calcular ratio desbalance ---
+counter = Counter(y_train)
+num_pos = counter.get(1, 0)
+num_neg = counter.get(0, 0)
+ratio = num_neg / num_pos
+print(f"Positivos: {num_pos}, Negativos: {num_neg}, Ratio (neg/pos): {ratio:.2f}")
+
+# --- 4) Definir clasificador base ---
+xgb_clf = xgb.XGBClassifier(
+    objective="binary:logistic",
+    eval_metric="auc",
+    scale_pos_weight=ratio,
+    random_state=42,
+    n_jobs=-1
+)
+
+# --- 5) Grid de hiperparámetros ---
+param_grid = {
+    "max_depth": [3, 5, 7],
+    "learning_rate": [0.1, 0.05, 0.01],
+    "n_estimators": [100, 200],
+    "subsample": [0.8, 1.0],
+    "colsample_bytree": [0.8, 1.0],
+    "min_child_weight": [1, 5],
+    "gamma": [0, 1]
+}
+
+grid = GridSearchCV(
+    estimator=xgb_clf,
+    param_grid=param_grid,
+    scoring="roc_auc",  
+    cv=10,
+    n_jobs=-1,
+    verbose=1
+)
+
+# --- 6) MLflow logging ---
+mlflow.set_experiment("travelmind_xgb_models")
+
+with mlflow.start_run() as run:
+
+    mlflow.log_param("cv_folds", 10)
+    mlflow.log_param("scale_pos_weight", ratio)
+    # Entrenar
+    grid.fit(X_train, y_train)
+
+    # Mejor modelo
+    best_model = grid.best_estimator_
+    print("Best params:", grid.best_params_)
+
+    # Evaluar en test
+    y_pred = best_model.predict(X_test)
+    y_pred_prob = best_model.predict_proba(X_test)[:, 1]
+
+    acc = accuracy_score(y_test, y_pred)
+    auc = roc_auc_score(y_test, y_pred_prob)
+    f1 = f1_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, zero_division=0)
+    recall = recall_score(y_test, y_pred, zero_division=0)
+
+    print(f"Accuracy: {acc:.3f}")
+    print(f"AUC: {auc:.3f}")
+    print(f"F1: {f1:.3f}")
+    print(f"Precision: {precision:.3f}")
+    print(f"Recall: {recall:.3f}")
+
+    # Log parámetros y métricas
+    mlflow.log_params(grid.best_params_)
+    mlflow.log_param("scale_pos_weight", ratio)
+    mlflow.log_metrics({
+        "accuracy": acc,
+        "auc": auc,
+        "f1": f1,
+        "precision": precision,
+        "recall": recall
+    })
+
+    # Loggear modelo
+    mlflow.sklearn.log_model(
+        sk_model=best_model,
+        artifact_path="xgb_model",
+        input_example=X_test[:5],
+        signature=mlflow.models.infer_signature(X_test, y_test)
     )
 
-    prediction = best_model.transform(future_df)
+    # Registrar en Model Registry
+    model_uri = f"runs:/{run.info.run_id}/xgb_model"
+    try:
+        mlflow.register_model(model_uri=model_uri, name="travelmind_xgb_model")
+        print("Modelo registrado en MLflow Model Registry.")
+    except Exception as e:
+        print("No se pudo registrar en el Model Registry:", e)
 
-    # Mostrar resultado
-    prediction.select("PROVINCIA","MES","AÑO","prediction","probability").show(truncate=False)
-
-    # Aplica el modelo
-    preds = best_model.transform(test_df)
-
-    # Filtra los casos que el modelo predijo como "Bueno" (1)
-    preds_buenos = preds.filter(col("prediction") == 1)
-
-    # Muestra algunos resultados
-    print(preds_buenos.count())
-    print(preds.count())
-    preds_buenos.select("AÑO", "MES","PROVINCIA","dia_numero", "prediction", "probability").show(20, truncate=False)
+    print("Run ID:", run.info.run_id)
     
