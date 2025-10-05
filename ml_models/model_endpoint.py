@@ -1,8 +1,6 @@
 import mlflow.pyfunc
 import pandas as pd
 from datetime import datetime
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import month, dayofweek, col
 import mlflow.sklearn
 import utils as utils
 
@@ -14,60 +12,87 @@ class TravelMindModel(mlflow.pyfunc.PythonModel):
         
         self.model = mlflow.sklearn.load_model(model_uri)
 
-        # Iniciar Spark
-        spark = utils.create_context()
-
-    def enrich_data(self, ciudad: str, fecha: str):
-        # Convertir fecha a datetime
-        dt = datetime.strptime(fecha, "%Y-%m-%d")
-        mes = dt.month
-        dia_semana = dt.weekday() + 1  # Spark usa 1=Lunes ... 7=Domingo
-
-        # 🔹 Filtrar Spark DataFrame
-        df_filtered = (
-            self.df_base
-            .filter((col("ciudad") == ciudad) &
-                    (month(col("fecha")) == mes) &
-                    (dayofweek(col("fecha")) == dia_semana))
+        self.df_base = self.load_exploitation_table(
+            db_name="exploitation",
+            table_name="travelmind_features"
         )
 
-        # 🔹 Agregar (promediar o sumar) las features relevantes
-        df_agg = df_filtered.groupBy().avg(
-            "apt_viajeros", "trafico_imd_total", "temp_media_mes",
-            "ocio_total_entradas", "aire_pct_buena"
-        ).toPandas()
+    def enrich_data(self, ciudad: str, fecha: str) -> pd.DataFrame:
+        # Convertir fecha a datetime
+        dt = datetime.strptime(fecha, "%Y-%m-%d")
+        year = dt.year
+        month = dt.month
+        day_number = dt.weekday() + 1  # Spark usa 1=Lunes ... 7=Domingo
+        feature_cols = [
+            # Turismo
+            "apt_viajeros", "apt_pernoctaciones", "apt_estancia_media", "apt_estimados",
+            "plazas_estimadas", "apt_personal_empleado","apt_availability_score",
+            
+            # Tráfico
+            "trafico_imd_total",
+            
+            # Ocio
+            "ocio_total_entradas", "ocio_gasto_total", "ocio_precio_medio_entrada",
+            
+            # Calidad del aire
+            "aire_pct_buena", "aire_pct_aceptable", "aire_pct_mala",
+            
+            # Clima
+            "temp_media_mes", "temp_min_media_mes", "temp_max_media_mes",
+            "precipitacion_total_mes", "dias_lluvia_mes",
+            "dias_calidos", "dias_helada"
+        ]
+        # 🔹 Filtrar DataFrame
+        df_filtered = self.df_base[
+            (self.df_base["PROVINCIA"] == ciudad) &
+            (self.df_base["MES"] == month) &
+            (self.df_base["dia_numero"] == day_number)
+        ]
 
-        # Cambiar nombres si Spark agrega "avg()"
-        df_agg.columns = [c.replace("avg(", "").replace(")", "") for c in df_agg.columns]
-        return df_agg
+        # 🔹 Agrupar y promediar las columnas de features
+        df_grouped = df_filtered.groupby(
+            ["PROVINCIA", "MES", "dia_numero"], as_index=False
+        )[feature_cols].mean()
 
-    def predict(self, context, model_input):
-        ciudad = model_input.get("ciudad")
-        fecha = model_input.get("fecha")
+        # 🔹 Añadir columna AÑO
+        df_grouped["PROVINCIA"] = df_filtered["PROVINCIA"].astype("category")
+        df_grouped["AÑO"] = year
 
-        # 🔹 Enriquecer datos dinámicamente
-        df_features = self.enrich_data(ciudad, fecha)
+        return df_grouped[feature_cols]
 
-        # 🔹 Predecir con el modelo XGBoost
-        preds = self.model.predict(df_features)
-        probs = self.model.predict_proba(df_features)[:, 1]
+    def predict(self, context, model_input: pd.DataFrame) -> dict:
 
-        return pd.DataFrame({
-            "ciudad": [ciudad],
-            "fecha": [fecha],
-            "prediction": preds,
-            "probability": probs
-        })
+        results = []
+
+        for _, row in model_input.iterrows():
+            ciudad = row["ciudad"]
+            fecha = row["fecha"]
+
+            df_features = self.enrich_data(ciudad, fecha)
+            preds = self.model.predict(df_features)
+            probs = self.model.predict_proba(df_features)[:, 1]
+
+            results.append({
+                "ciudad": ciudad,
+                "fecha": fecha,
+                "prediction": preds[0],
+                "probability": float(probs[0])
+            })
+
+        return results
     
-    def crate_base_df(self):
-        # Cargar datos base desde CSV
-        spark = utils.create_context()
-        self.df_base = spark.read.csv("data/travelmind_base_data.csv", header=True, inferSchema=True)
-        self.df_base = self.df_base.withColumn("fecha", col("fecha").cast("date"))
+    def load_exploitation_table(self,db_name:str, table_name: str) -> pd.DataFrame:
+        df = pd.read_parquet(f"./data/warehouse/{db_name}/tm_features_for_pd/{table_name}.parquet")
+        return df
+
 
 # Guardar modelo PyFunc con referencia al XGBoost
-mlflow.pyfunc.save_model(
-    path="travelmind_enriched_model",
-    python_model=TravelMindModel(),
-    artifacts={"xgb_model": "runs:/be374f43b403494fa03cbcc5a6cd22a5/xgb_model"}
-)
+with mlflow.start_run() as run:
+    mlflow.pyfunc.log_model(
+        artifact_path="travelmind_enriched_model",
+        python_model=TravelMindModel(),
+        registered_model_name="travelmind_enriched_model"
+    )
+
+    print("Modelo registrado correctamente en MLflow")
+    print("Run ID:", run.info.run_id)
