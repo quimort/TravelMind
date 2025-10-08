@@ -28,7 +28,7 @@ def process_actividades(path: str = "https://dataestur.azure-api.net/API-SEGITTU
 		if show_rows > 0:
 			df2 = utils.read_iceberg_table(spark, db_name, table_name)
 			df2.show(show_rows)
-		return df
+
 	finally:
 		# If we created the Spark session here, stop it to free resources.
 		if created_spark:

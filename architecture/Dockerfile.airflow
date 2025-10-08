@@ -1,4 +1,4 @@
-FROM apache/airflow:2.10.4
+FROM apache/airflow:2.10.4-python3.11
 
 RUN pip install apache-airflow-providers-apache-spark
 
@@ -8,7 +8,7 @@ RUN apt-get install -y --no-install-recommends openjdk-17-jdk
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Fix JAVA_HOME to point to the correct location
-ENV JAVA_HOME="/usr/lib/jvm/java-17-openjdk-arm64"
+ENV JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
 ENV SPARK_HOME="/home/sparkuser/spark"
 ENV PATH="${JAVA_HOME}/bin:${SPARK_HOME}/bin:${SPARK_HOME}/sbin:${PATH}"
 
@@ -28,7 +28,10 @@ RUN chown -R airflow:sparkuser ${SPARK_HOME}
 
 RUN apt update
 RUN apt-get -y install procps
-
+USER airflow
+RUN pip uninstall -y pyspark
+RUN pip install pyspark==3.5.6 || true
+RUN pip install openpyxl
 COPY ./architecture/spark-defaults.conf "${SPARK_HOME}/conf"
 
 ## Do not COPY the full project into the image when using Option 1.
