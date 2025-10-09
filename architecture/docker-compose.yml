@@ -41,6 +41,7 @@ x-airflow-common:
     - ../config:/opt/airflow/config
     - ../plugins:/opt/airflow/plugins
     - ../include:/opt/airflow/include
+    - ../data/warehouse:/opt/airflow/data/warehouse
   user: "${AIRFLOW_UID:-50000}:1000"
   depends_on:
     &airflow-common-depends-on
@@ -82,6 +83,7 @@ services:
     volumes:
       - ../include:/opt/airflow/include
       - spark-events:/home/sparkuser/spark/events
+      - ../data/warehouse:/opt/airflow/data/warehouse
 
   spark-worker:
     image: travelmind-spark:v2
@@ -96,6 +98,7 @@ services:
     volumes:
       - ../include:/opt/airflow/include
       - spark-events:/home/sparkuser/spark/events
+      - ../data/warehouse:/opt/airflow/data/warehouse
     
   spark-history-server:
     image: travelmind-spark:v2
@@ -110,6 +113,7 @@ services:
     command: -c "/home/sparkuser/spark/sbin/start-history-server.sh; tail -f /dev/null"
     volumes:
       - spark-events:/home/sparkuser/spark/events
+      - ../data/warehouse:/opt/airflow/data/warehouse
     ports:
       - '18080:18080'
 
@@ -348,6 +352,7 @@ services:
         - ./output:/app/output
         - spark-events:/home/sparkuser/spark/events
         - ${AIRFLOW_PROJ_DIR:-.}:/sources
+        - ../data/warehouse:/opt/airflow/data/warehouse
 
   airflow-cli:
       <<: *airflow-common
