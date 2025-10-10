@@ -1,6 +1,4 @@
-from pyspark.sql import SparkSession,Row,DataFrame
-from pyspark.ml.feature import VectorAssembler
-from pyspark.ml import Pipeline
+from pyspark.sql import SparkSession,DataFrame
 import utils as utils
 from pyspark.sql.functions import *
 import pandas as pd
@@ -13,8 +11,6 @@ from sklearn.metrics import (
 )
 from collections import Counter
 from collections import Counter
-from builtins import min as python_min
-from datetime import date
 
 
 def statr_experiment():
@@ -88,20 +84,20 @@ if __name__ == "__main__":
     feature_cols = [
         # Turismo
         "apt_viajeros", "apt_pernoctaciones", "apt_estancia_media", "apt_estimados",
-        "plazas_estimadas", "apt_personal_empleado","apt_availability_score",
+        "plazas_estimadas", "apt_personal_empleado","apt_availability_score_lag1",
         
         # Tráfico
-        "trafico_imd_total",
+        "trafico_imd_total_lag1",
         
         # Ocio
         "ocio_total_entradas", "ocio_gasto_total", "ocio_precio_medio_entrada",
         
         # Calidad del aire
-        "aire_pct_buena", "aire_pct_aceptable", "aire_pct_mala",
+        "aire_pct_buena_lag1", "aire_pct_aceptable", "aire_pct_mala",
         
         # Clima
-        "temp_media_mes", "temp_min_media_mes", "temp_max_media_mes",
-        "precipitacion_total_mes", "dias_lluvia_mes",
+        "temp_media_mes", "temp_min_media_mes_lag1", "temp_max_media_mes_lag1",
+        "precipitacion_total_mes", "dias_lluvia_mes_lag1",
         "dias_calidos", "dias_helada"
     ]
 
