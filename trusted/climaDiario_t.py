@@ -149,8 +149,8 @@ if __name__ == "__main__":
 
     # Tablas (ojo al catálogo)
     # Ajusta estos nombres según tu configuración
-    db_trusted = "trusted_db"
-    tbl_trusted = "aemetClimaDiarioTrusted"
+    db_trusted = "trusted"
+    tbl_trusted = "aemet_clima_diario_trusted"
 
     #nombre de la base de datos y tabla raw
     landing_db = "landing_db"
@@ -248,8 +248,8 @@ if __name__ == "__main__":
             F.col("horaHrMax").alias("horaHumedadRelativaMaxima"),
             F.col("hrMin").alias("humedadRelativaMinima"),
             F.col("horaHrMin").alias("horaHumedadRelativaMinima"),
-            F.col("year").alias("year"),
-            F.col("month").alias("month"))
+            F.col("year").alias("AÑO"),
+            F.col("month").alias("MES"))
 
     # ---- 6. Limpieza básica ---- 
     #---- 6.1 Reemplazar comas por puntos en columnas numéricas ----
@@ -266,7 +266,7 @@ if __name__ == "__main__":
     #---- 6.1 Imputar nulos en columnas StringType ----
     print("Iniciando Imputación de datos numericos y strings...")
     df_imputed = (df_clean
-              .transform(imputeNumericColumns, constant_value=-9999)
+              #.transform(imputeNumericColumns, constant_value=-9999)
               .transform(imputeStringColumns, replacement_value="Desconocido")
              )
     # Escribir la tabla limpia en Iceberg

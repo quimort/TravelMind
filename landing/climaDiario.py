@@ -300,8 +300,8 @@ if __name__ == "__main__":
 
     # 2. Define las fechas para la descarga
     # Aquí un ejemplo para descargar los datos de los últimos 30 días
-    start_date = datetime(2010, 1, 1)
-    end_date = datetime(2024, 12, 31)
+    start_date = datetime(2025, 1, 1)
+    end_date = datetime(2025, 9, 30)
     headers = {'api_key': API_KEY}
     all_climatological_data = []
     errores_intervals = []
