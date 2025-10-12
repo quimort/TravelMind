@@ -29,6 +29,7 @@ x-airflow-common:
       # Make the project available on Python path inside the container so DAGs can import
       # the top-level `TravelMind` package from your repo root.
       PYTHONPATH: /opt/airflow/project
+      PYSPARK_PYTHON: /usr/local/bin/python3
   volumes:
     - .:/app
     - spark-events:/home/sparkuser/spark/events
@@ -40,6 +41,7 @@ x-airflow-common:
     - ../config:/opt/airflow/config
     - ../plugins:/opt/airflow/plugins
     - ../include:/opt/airflow/include
+    - ../data/warehouse:/opt/airflow/data/warehouse
   user: "${AIRFLOW_UID:-50000}:1000"
   depends_on:
     &airflow-common-depends-on
@@ -54,7 +56,7 @@ networks:
 services:
   
   jar-builder:
-    image: travelmind-spark
+    image: travelmind-spark:v2
     build: .
     profiles:
       - build
@@ -65,13 +67,14 @@ services:
       - .:/app
   
   spark-master:
-    image: travelmind-spark
+    image: travelmind-spark:v2
     build: .
-    container_name: spark-master
+    #container_name: spark-master
+    hostname: spark-master
     networks:
       - sparkpg_network
     environment:
-      - JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
+      - JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
     entrypoint: /bin/bash
     command: -c "/home/sparkuser/spark/sbin/start-master.sh; tail -f /dev/null"
     ports:
@@ -80,33 +83,37 @@ services:
     volumes:
       - ../include:/opt/airflow/include
       - spark-events:/home/sparkuser/spark/events
+      - ../data/warehouse:/opt/airflow/data/warehouse
 
   spark-worker:
-    image: travelmind-spark
+    image: travelmind-spark:v2
     build: .
-    container_name: spark-worker1
+    #container_name: spark-worker1
     networks:
       - sparkpg_network
-    environment:
-      - JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
+    environment:  
+      - JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
     entrypoint: /bin/bash
     command: -c "/home/sparkuser/spark/sbin/start-worker.sh  spark://spark-master:7077; tail -f /dev/null"
     volumes:
       - ../include:/opt/airflow/include
       - spark-events:/home/sparkuser/spark/events
+      - ../data/warehouse:/opt/airflow/data/warehouse
     
   spark-history-server:
-    image: travelmind-spark
+    image: travelmind-spark:v2
     build: .
     container_name: spark-history-server
     networks:
       - sparkpg_network
     environment:
-      - JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
+      - JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+      - PYSPARK_PYTHON=/usr/local/bin/python3
     entrypoint: /bin/bash
     command: -c "/home/sparkuser/spark/sbin/start-history-server.sh; tail -f /dev/null"
     volumes:
       - spark-events:/home/sparkuser/spark/events
+      - ../data/warehouse:/opt/airflow/data/warehouse
     ports:
       - '18080:18080'
 
@@ -201,6 +208,8 @@ services:
       environment:
         <<: *airflow-common-env
         PYTHONPATH: /opt/airflow/project
+        PYSPARK_PYTHON: /usr/local/bin/python3
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       healthcheck:
         test: ["CMD", "curl", "--fail", "http://localhost:8090/health"]
         interval: 30s
@@ -219,6 +228,8 @@ services:
       environment:
         <<: *airflow-common-env
         PYTHONPATH: /opt/airflow/project
+        PYSPARK_PYTHON: /usr/local/bin/python3
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       healthcheck:
         test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
         interval: 30s
@@ -247,6 +258,8 @@ services:
         # Required to handle warm shutdown of the celery workers properly
         # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
         DUMB_INIT_SETSID: "0"
+        PYSPARK_PYTHON: /usr/local/bin/python3
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       restart: always
       depends_on:
         <<: *airflow-common-depends-on
@@ -263,6 +276,10 @@ services:
         retries: 5
         start_period: 30s
       restart: always
+      environment:
+        <<: *airflow-common-env
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+        PYSPARK_PYTHON: /usr/local/bin/python3
       depends_on:
         <<: *airflow-common-depends-on
         airflow-init:
@@ -328,17 +345,22 @@ services:
         _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
         _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
         _PIP_ADDITIONAL_REQUIREMENTS: ''
+        PYSPARK_PYTHON: /usr/local/bin/python3
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       user: "0:0"
       volumes:
         - ./output:/app/output
         - spark-events:/home/sparkuser/spark/events
         - ${AIRFLOW_PROJ_DIR:-.}:/sources
+        - ../data/warehouse:/opt/airflow/data/warehouse
 
   airflow-cli:
       <<: *airflow-common
       environment:
         <<: *airflow-common-env
         CONNECTION_CHECK_MAX_COUNT: "0"
+        PYSPARK_PYTHON: /usr/local/bin/python3
+        JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       command:
         - bash
         - -c

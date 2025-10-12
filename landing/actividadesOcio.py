@@ -1,5 +1,5 @@
-import utilsJoaquim as utils
-
+import utilsJoaquim_airflow as utils
+#import utilsJoaquim as utils
 
 def process_actividades(path: str = "https://dataestur.azure-api.net/API-SEGITTUR-v1/ACTIVIDADES_OCIO_DL?CCAA=Todos&Provincia=Todos",
 						 spark=None,
@@ -28,7 +28,7 @@ def process_actividades(path: str = "https://dataestur.azure-api.net/API-SEGITTU
 		if show_rows > 0:
 			df2 = utils.read_iceberg_table(spark, db_name, table_name)
 			df2.show(show_rows)
-		return df
+
 	finally:
 		# If we created the Spark session here, stop it to free resources.
 		if created_spark:

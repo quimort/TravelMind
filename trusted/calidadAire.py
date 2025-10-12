@@ -1,78 +1,101 @@
 from pyspark.sql.functions import col, when
-import utilsJoaquim as utils
+import utilsJoaquim_airflow as utils
 
-# 1) Re-use the same Iceberg-aware session for read & write
-spark = utils.create_context()
-spark.sparkContext.setLogLevel("ERROR")
+def process_calidad_aire_selected(
+	spark=None,
+	src_db: str = "landing",
+	src_table: str = "calidad_aire",
+	tgt_db: str = "trusted",
+	tgt_table: str = "calidad_aire_selected",
+	show_rows: int = 10):
+	"""Process calidad del aire data from landing to trusted zone.
 
-# Read landing-zone Iceberg table
-db_name = "landing"
-table_name = "calidad_aire"
-print(f"→ Reading spark_catalog.{db_name}.{table_name}")
+	This function:
+	1. Reads the Iceberg table from the landing zone.
+	2. Cleans and normalizes data (fixes province names, removes nulls).
+	3. Filters selected provinces.
+	4. Writes the cleaned subset into the trusted zone.
+	5. Prints a data quality report by province.
 
-df = utils.read_iceberg_table(spark, db_name, table_name)
+	Parameters
+	- spark: optional SparkSession. If not provided, a local session will be created.
+	- src_db/src_table: source Iceberg database and table.
+	- tgt_db/tgt_table: target Iceberg database and table.
+	- show_rows: if >0, show sample rows for quick debugging.
+	"""
+	created_spark = False
+	if spark is None:
+		spark = utils.create_context()
+		created_spark = True
+		spark.sparkContext.setLogLevel("ERROR")
 
-# 2) Clean & normalize
-df_clean = df.dropna()
+	try:
+		print(f"→ Reading spark_catalog.{src_db}.{src_table}")
+		df = utils.read_iceberg_table(spark, src_db, src_table)
 
-# Normalize province names (fix Valencia)
-df_clean = df_clean.withColumn(
-    "PROVINCIA",
-    when(col("PROVINCIA") == "Valencia/València", "Valencia")
-    .otherwise(col("PROVINCIA"))
-)
+		# --- Cleaning and normalization ---
+		df_clean = df.dropna()
+		df_clean = df_clean.withColumn(
+			"PROVINCIA",
+			when(col("PROVINCIA") == "Valencia/València", "Valencia").otherwise(col("PROVINCIA"))
+		)
 
-# 3) Provinces of interest
-provinces = ["Madrid", "Barcelona", "Sevilla", "Illes Balears", "Valencia"]
+		# --- Provinces of interest ---
+		provinces = ["Madrid", "Barcelona", "Sevilla", "Illes Balears", "Valencia"]
 
-print("\n=== Province Data Quality Report (calidad_aire) ===")
+		print("\n=== Province Data Quality Report (calidad_aire) ===")
+		for prov in provinces:
+			df_prov = df.filter(col("PROVINCIA") == prov)
+			count_total = df_prov.count()
 
-for prov in provinces:
-    df_prov = df.filter(col("PROVINCIA") == prov)
-    count_total = df_prov.count()
+			df_prov_clean = df_clean.filter(col("PROVINCIA") == prov)
+			count_clean = df_prov_clean.count()
 
-    df_prov_clean = df_clean.filter(col("PROVINCIA") == prov)
-    count_clean = df_prov_clean.count()
+			count_nulls = count_total - count_clean
 
-    count_nulls = count_total - count_clean
+			if count_clean > 0:
+				df_months = df_prov_clean.select("AÑO", "MES").distinct()
+				first_row = df_months.orderBy("AÑO", "MES").first()
+				last_row = df_months.orderBy(col("AÑO").desc(), col("MES").desc()).first()
 
-    if count_clean > 0:
-        # Distinct months in the cleaned data
-        df_months = df_prov_clean.select("AÑO", "MES").distinct()
+				first_year, first_month = first_row["AÑO"], int(first_row["MES"])
+				last_year, last_month = last_row["AÑO"], int(last_row["MES"])
 
-        first_row = df_months.orderBy("AÑO", "MES").first()
-        last_row = df_months.orderBy(col("AÑO").desc(), col("MES").desc()).first()
+				total_months_expected = (last_year - first_year) * 12 + (last_month - first_month + 1)
+				total_months_present = df_months.count()
+				missing_months = total_months_expected - total_months_present
 
-        first_year, first_month = first_row["AÑO"], int(first_row["MES"])
-        last_year, last_month = last_row["AÑO"], int(last_row["MES"])
+				print(f"✅ {prov}")
+				print(f"   - Total rows before cleaning: {count_total}")
+				print(f"   - Rows dropped (nulls): {count_nulls}")
+				print(f"   - Rows after cleaning: {count_clean}")
+				print(f"   - Distinct months present: {total_months_present}")
+				print(f"   - Expected months: {total_months_expected}")
+				print(f"   - Missing months: {missing_months}")
+				print(f"   - First instance → AÑO={first_year}, MES={first_month:02d}")
+				print(f"   - Last instance  → AÑO={last_year}, MES={last_month:02d}\n")
+			else:
+				print(f"⚠️ {prov}: No data after cleaning\n")
 
-        total_months_expected = (last_year - first_year) * 12 + (last_month - first_month + 1)
-        total_months_present = df_months.count()
+		# --- Filter final dataset and write to trusted zone ---
+		df_filtered = df_clean.filter(col("PROVINCIA").isin(provinces))
+		if show_rows > 0:
+			df_filtered.show(show_rows)
 
-        missing_months = total_months_expected - total_months_present
+		print(f"→ Writing spark_catalog.{tgt_db}.{tgt_table}")
+		utils.overwrite_iceberg_table(spark, df_filtered, tgt_db, tgt_table)
 
-        print(f"✅ {prov}")
-        print(f"   - Total rows before cleaning: {count_total}")
-        print(f"   - Rows dropped (nulls): {count_nulls}")
-        print(f"   - Rows after cleaning: {count_clean}")
-        print(f"   - Distinct months present: {total_months_present}")
-        print(f"   - Expected months: {total_months_expected}")
-        print(f"   - Missing months: {missing_months}")
-        print(f"   - First instance → AÑO={first_year}, MES={first_month:02d}")
-        print(f"   - Last instance  → AÑO={last_year}, MES={last_month:02d}\n")
-    else:
-        print(f"⚠️ {prov}: No data after cleaning\n")
+		print("✅ Trusted load complete.")
 
-# 4) Create final filtered DataFrame with only these provinces
-df_filtered = df_clean.filter(col("PROVINCIA").isin(provinces))
+	finally:
+		# Stop Spark if it was created inside this function
+		if created_spark:
+			try:
+				spark.stop()
+			except Exception:
+				pass
 
-df_filtered.show()
 
-# 5) Write into trusted zone (single table with only these provinces)
-tgt_db, tgt_tbl = "trusted", "calidad_aire_selected"
-print(f"→ Writing spark_catalog.{tgt_db}.{tgt_tbl}")
-utils.overwrite_iceberg_table(spark, df_filtered, tgt_db, tgt_tbl)
-
-print("✅ Trusted load complete.")
-
-spark.stop()
+if __name__ == "__main__":
+	# Local quick-run for development / debugging
+	process_calidad_aire_selected(show_rows=10)

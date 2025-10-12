@@ -5,6 +5,6 @@ original module lives (`landing/utilsJoaquim.py`). Placing a small shim at
 project root makes the module importable as a top-level name inside the
 Airflow containers (since the repository root is on PYTHONPATH).
 """
-from landing.utilsJoaquim import *  # noqa: F401,F403
+from landing.utilsJoaquim_airflow import *  # noqa: F401,F403
 
 __all__ = []

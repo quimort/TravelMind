@@ -1,4 +1,4 @@
-import utilsJoaquim as utils
+import utilsJoaquim_airflow as utils
 
 # Create Spark session
 spark = utils.create_context()
