@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, when
-import utilsJoaquim as utils
+import utilsJoaquim_airflow as utils
 from functools import reduce
 
 # 1) Re-use the same Iceberg-aware session for read & write

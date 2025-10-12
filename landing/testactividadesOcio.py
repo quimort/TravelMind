@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Optional
 
-import utilsJoaquim as utils
+import utilsJoaquim_airflow as utils
 
 logger = logging.getLogger(__name__)
 

@@ -1,9 +1,9 @@
 # actividades_ocio_pipeline.py
+import utilsJoaquim_airflow as utils
+#import utilsJoaquim as utils
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, when
-import utilsJoaquim as utils
 from typing import List, Optional
-
 
 def process_actividades_selected(
     spark: Optional[SparkSession] = None,

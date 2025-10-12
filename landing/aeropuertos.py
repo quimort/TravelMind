@@ -1,4 +1,4 @@
-import utilsJoaquim as utils
+import utilsJoaquim_airflow as utils
 from pyspark.sql import functions as F
 
 # Create Spark context

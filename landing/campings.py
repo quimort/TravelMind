@@ -1,4 +1,4 @@
-import utilsJoaquim as utils
+import utilsJoaquim_airflow as utils
 
 spark = utils.create_context()
 spark.sparkContext.setLogLevel("ERROR")

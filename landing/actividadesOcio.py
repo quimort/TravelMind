@@ -1,5 +1,5 @@
-import utilsJoaquim as utils
-
+import utilsJoaquim_airflow as utils
+#import utilsJoaquim as utils
 
 def process_actividades(path: str = "https://dataestur.azure-api.net/API-SEGITTUR-v1/ACTIVIDADES_OCIO_DL?CCAA=Todos&Provincia=Todos",
 						 spark=None,

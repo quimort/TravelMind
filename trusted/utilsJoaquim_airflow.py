@@ -10,13 +10,11 @@ import sys
 def create_context() -> SparkSession:
 
     # Usa el mismo intérprete que el kernel del notebook
-    os.environ["PYSPARK_PYTHON"] = sys.executable
-    os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
     spark = SparkSession.builder\
         .appName("IcebergWritedata") \
         .config("spark.sql.catalog.spark_catalog", "org.apache.iceberg.spark.SparkSessionCatalog") \
         .config("spark.sql.catalog.spark_catalog.type", "hadoop") \
-        .config("spark.sql.catalog.spark_catalog.warehouse", "C:/Users/Joaquim Balletbo/OneDrive/Documents/AAmaster_UPC/TFM/TravelMind/data/warehouse") \
+        .config("spark.sql.catalog.spark_catalog.warehouse", "/opt/airflow/data/warehouse") \
         .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
         .config("spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.4.3") \
         .config("spark.hadoop.fs.file.impl", "org.apache.hadoop.fs.LocalFileSystem")\
