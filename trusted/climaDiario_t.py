@@ -153,8 +153,8 @@ if __name__ == "__main__":
     tbl_trusted = "aemet_clima_diario_trusted"
 
     #nombre de la base de datos y tabla raw
-    landing_db = "landing_db"
-    tbl_landing = "aemetClimaDiario"
+    landing_db = "landing"
+    tbl_landing = "aemet_clima_diario"
     print(f" Leyendo tabla RAW: spark_catalog.{landing_db}.{tbl_landing}")
     df_landing= utils.read_iceberg_table(spark,db_name=landing_db,table_name=tbl_landing)
 
