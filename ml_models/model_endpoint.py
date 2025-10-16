@@ -7,7 +7,7 @@ import utils as utils
 class TravelMindModel(mlflow.pyfunc.PythonModel):
     def load_context(self, context):
         model_name = "travelmind_xgb_model"
-        model_version = 4
+        model_version = 11
         model_uri = f"models:/{model_name}/{model_version}"
         
         self.model = mlflow.sklearn.load_model(model_uri)
@@ -26,21 +26,22 @@ class TravelMindModel(mlflow.pyfunc.PythonModel):
         feature_cols = [
             # Turismo
             "apt_viajeros", "apt_pernoctaciones", "apt_estancia_media", "apt_estimados",
-            "plazas_estimadas", "apt_personal_empleado","apt_availability_score",
-            
-            # Tráfico
-            "trafico_imd_total",
+            "plazas_estimadas", "apt_personal_empleado","apt_availability_score_lag1",
             
             # Ocio
             "ocio_total_entradas", "ocio_gasto_total", "ocio_precio_medio_entrada",
             
             # Calidad del aire
-            "aire_pct_buena", "aire_pct_aceptable", "aire_pct_mala",
+            "aire_pct_buena_lag1", "aire_pct_aceptable", "aire_pct_mala",
             
             # Clima
-            "temp_media_mes", "temp_min_media_mes", "temp_max_media_mes",
-            "precipitacion_total_mes", "dias_lluvia_mes",
-            "dias_calidos", "dias_helada"
+            "temp_media_mes", "temp_min_media_mes_lag1", "temp_max_media_mes_lag1",
+            "precipitacion_total_mes", "dias_lluvia_mes_lag1",
+            "dias_calidos", "dias_helada",
+
+            #Percepcion
+            "indice_percepcion_turistica_global", "indice_percepcion_seguridad",
+            "indice_satisfaccion_productos_turisticos","indice_percepcion_climatica"
         ]
         # 🔹 Filtrar DataFrame
         df_filtered = self.df_base[

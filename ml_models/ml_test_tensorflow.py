@@ -53,14 +53,13 @@ if __name__ == "__main__":
 
     # 1. Calcular percentiles 33 y 66
     quantiles = df_joined.approxQuantile(
-        ["trafico_imd_total", "aire_pct_buena", "apt_availability_score"],
+        ["aire_pct_buena", "apt_availability_score"],
         [0.33, 0.66],
         0.01
     )
 
-    (traf_p33, traf_p66), (aire_p33, aire_p66), (apt_p33, apt_p66) = quantiles
+    (aire_p33, aire_p66), (apt_p33, apt_p66) = quantiles
 
-    print("Umbrales tráfico:", traf_p33, traf_p66)
     print("Umbrales aire:", aire_p33, aire_p66)
     print("Umbrales alojamiento:", apt_p33, apt_p66)
     # Definir percentiles previamente calculados de temperatura y precipitación
@@ -71,7 +70,6 @@ if __name__ == "__main__":
     df_labeled = df_joined.withColumn(
         "label",
         when(
-            (col("trafico_imd_total") > traf_p66) |
             (col("aire_pct_buena") < aire_p33) |
             (col("apt_availability_score") < apt_p33) |
             (col("temp_min_media_mes") < temp_p10) |   
@@ -86,9 +84,6 @@ if __name__ == "__main__":
         "apt_viajeros", "apt_pernoctaciones", "apt_estancia_media", "apt_estimados",
         "plazas_estimadas", "apt_personal_empleado","apt_availability_score_lag1",
         
-        # Tráfico
-        "trafico_imd_total_lag1",
-        
         # Ocio
         "ocio_total_entradas", "ocio_gasto_total", "ocio_precio_medio_entrada",
         
@@ -98,10 +93,12 @@ if __name__ == "__main__":
         # Clima
         "temp_media_mes", "temp_min_media_mes_lag1", "temp_max_media_mes_lag1",
         "precipitacion_total_mes", "dias_lluvia_mes_lag1",
-        "dias_calidos", "dias_helada"
-    ]
+        "dias_calidos", "dias_helada",
 
-    df_labeled = df_labeled.fillna(0, subset=feature_cols)
+        #Percepcion
+        "indice_percepcion_turistica_global", "indice_percepcion_seguridad",
+        "indice_satisfaccion_productos_turisticos","indice_percepcion_climatica"
+    ]
     df_pd = df_labeled.toPandas()
 
     
