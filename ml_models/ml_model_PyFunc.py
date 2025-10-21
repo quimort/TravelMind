@@ -10,7 +10,7 @@ import xgboost as xgb
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, precision_score, recall_score
 from collections import Counter
-
+from datetime import datetime
 # ===========================
 # 1️⃣ Cargar features
 # ===========================
@@ -110,7 +110,6 @@ grid = GridSearchCV(
     n_jobs=-1,
     verbose=1
 )
-grid.fit(X_train, y_train)
 
 mlflow.set_experiment("travelmind_xgb_models")
 # ===========================
@@ -162,10 +161,14 @@ df_base.to_parquet(artifact_parquet)
 class TravelMindPyFunc(mlflow.pyfunc.PythonModel):
     def load_context(self, context):
         # Cargar modelo desde MLflow Model Registry
-        self.model = mlflow.sklearn.load_model("models:/travelmind_xgb_model/1")  # Cambia versión si hace falta
+        model_name = "travelmind_xgb_model"
+        model_version = 1 # Cambia versión si hace falta
+        model_uri = f"models:/{model_name}/{model_version}"
+
+        self.model = mlflow.sklearn.load_model(model_uri)  
         # Cargar tabla base
-        self.df_base = pd.read_parquet(context.artifacts["travelmind_features"])
-        from datetime import datetime
+        self.df_base = pd.read_parquet(context.artifacts.get["travelmind_features"])        
+
     def enrich_data(self, ciudad, fecha):
         dt = pd.to_datetime(fecha)
         month, day_number, year = dt.month, dt.weekday()+1, dt.year
@@ -183,9 +186,12 @@ class TravelMindPyFunc(mlflow.pyfunc.PythonModel):
         results = []
         for _, row in model_input.iterrows():
             X_input = self.enrich_data(row["ciudad"], row["fecha"])
+            if X_input.empty:
+                results.append({"ciudad": row["ciudad"], "fecha": row["fecha"], "prediction": None, "probability": None})
+                continue
             preds = self.model.predict(X_input)
             probs = self.model.predict_proba(X_input)[:,1]
-            results.append({"ciudad": row["ciudad"], "fecha": row["fecha"], "prediction": preds[0], "probability": float(probs[0])})
+            results.append({"ciudad": row["ciudad"], "fecha": row["fecha"], "prediction": int(preds[0]), "probability": float(probs[0])})
         return pd.DataFrame(results)
 
 # ------------------------------------------
@@ -199,3 +205,4 @@ with mlflow.start_run() as run:
         registered_model_name="travelmind_enriched_model"
     )
     print("PyFunc registrado con parquet incluido")
+    print("Run ID:", run.info.run_id)
