@@ -1,3 +1,4 @@
+#reentrenar modelo v1
 # =======================================================
 # Train, register XGBoost model and wrap as PyFunc
 # =======================================================
@@ -11,6 +12,10 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score, precision_score, recall_score
 from collections import Counter
 from datetime import datetime
+
+mlflow.set_tracking_uri("file:///content/drive/MyDrive/TravelMind/mlruns")
+#mlflow.set_experiment("travelmind_experiment")
+
 # ===========================
 # 1️⃣ Cargar features
 # ===========================
@@ -41,13 +46,13 @@ feature_cols = [
     # Turismo
     "apt_viajeros", "apt_pernoctaciones", "apt_estancia_media", "apt_estimados",
     "plazas_estimadas", "apt_personal_empleado","apt_availability_score_lag1",
-    
+
     # Ocio
     "ocio_total_entradas", "ocio_gasto_total", "ocio_precio_medio_entrada",
-    
+
     # Calidad del aire
     "aire_pct_buena_lag1", "aire_pct_aceptable", "aire_pct_mala",
-    
+
     # Clima
     "temp_media_mes", "temp_min_media_mes_lag1", "temp_max_media_mes_lag1",
     "precipitacion_total_mes", "dias_lluvia_mes_lag1",
@@ -105,7 +110,7 @@ param_grid = {
 grid = GridSearchCV(
     estimator=xgb_clf,
     param_grid=param_grid,
-    scoring="roc_auc",  
+    scoring="roc_auc",
     cv=10,
     n_jobs=-1,
     verbose=1
@@ -128,7 +133,7 @@ with mlflow.start_run() as run:
     f1 = f1_score(y_test, y_pred)
     precision = precision_score(y_test, y_pred, zero_division=0)
     recall = recall_score(y_test, y_pred, zero_division=0)
-    print(f"Accuracy={acc:.3f}, AUC={auc:.3f}, F1={f1:.3f}")
+    print(f"Accuracy={acc:.3f}, AUC={auc:.3f}, F1={f1:.3f}, Precision={precision:.3f}, Recall={recall:0.3f}")
 
     # Log metrics y parámetros
     mlflow.log_params(grid.best_params_)
@@ -144,7 +149,7 @@ with mlflow.start_run() as run:
     # Log modelo
     mlflow.sklearn.log_model(
         sk_model=best_model,
-        artifact_path="xgb_model",
+        name="xgb_model",
         #input_example=X_test[:5],
         #signature=mlflow.models.infer_signature(X_test, y_test),
         registered_model_name="travelmind_xgb_model"
@@ -165,13 +170,13 @@ class TravelMindPyFunc(mlflow.pyfunc.PythonModel):
         model_version = 1 # Cambia versión si hace falta
         model_uri = f"models:/{model_name}/{model_version}"
 
-        self.model = mlflow.sklearn.load_model(model_uri)  
+        self.model = mlflow.sklearn.load_model(model_uri)
         # Cargar tabla base
-        self.df_base = pd.read_parquet(context.artifacts.get["travelmind_features"])        
+        self.df_base = pd.read_parquet(context.artifacts.get["travelmind_features"])
 
     def enrich_data(self, ciudad, fecha):
         dt = pd.to_datetime(fecha)
-        month, day_number, year = dt.month, dt.weekday()+1, dt.year
+        month=dt.month, year = dt.year, day_number=dt.weekday()+1
         df_filtered = self.df_base[
             (self.df_base["PROVINCIA"]==ciudad) &
             (self.df_base["MES"]==month) &
@@ -199,7 +204,7 @@ class TravelMindPyFunc(mlflow.pyfunc.PythonModel):
 # ------------------------------------------
 with mlflow.start_run() as run:
     mlflow.pyfunc.log_model(
-        artifact_path="travelmind_enriched_model",
+        name="travelmind_enriched_model",
         python_model=TravelMindPyFunc(),
         artifacts={"travelmind_features": artifact_parquet},
         registered_model_name="travelmind_enriched_model"
