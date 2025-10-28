@@ -130,7 +130,7 @@ def predecir(ciudad, fecha):
         df_input = pd.DataFrame({"ciudad": [ciudad], "fecha": [fecha]})
         df_pred = enriched_model.predict(df_input)
         if df_pred.empty or df_pred["prediction"].isna().all():
-            return "⚠️ No hay datos para la ciudad o fecha indicada."
+            return " No hay datos para la ciudad o fecha indicada."
         pred = int(df_pred["prediction"].values[0])
         prob = df_pred["probability"].values[0]
         mensaje = "🌞 Buen momento para viajar" if pred == 1 else "🌧️ No es el mejor momento para viajar"
