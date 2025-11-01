@@ -94,47 +94,17 @@ print("\nModelo Enriquecido cargado")
 
 
 ###INTERFAZ GRADIO
-
-# Función para la interfaz
-def predecir(ciudad, fecha):
-    try:
-        df_input = pd.DataFrame({"ciudad":[ciudad], "fecha":[fecha]})
-        df_pred = enriched_model.predict(df_input)
-    
-        if df_pred.empty or df_pred['prediction'].isna().all():
-            return "No hay datos para la ciudad/fecha indicada"
-        
-        pred = int(df_pred['prediction'].values[0])
-        prob = df_pred['probability'].values[0]
-
-        # Traducción de 0/1 a texto
-        mensaje = "Buen momento para viajar" if pred == 1 else "Mal momento para viajar"
-
-        return f"{mensaje} (confianza: {prob:.2f})"
-    except Exception as e:
-        return f"Error al predecir: {e}"
-
-# Estilos personalizados Gradio
-custom_css = """
-body {background-color: #EAEAEA !important;}
-.gradio-container {color: #63686B;}
-input, textarea {background-color: #FFFFFF !important; color: #63686B !important;}
-button {background-color: #059ED6 !important; color: #FFFFFF !important; border-radius: 8px !important;}
-button:hover {background-color: #048CBC !important;}
-.output-text {font-size: 1.2em; font-weight: bold;}
-"""
-
 # === FUNCIÓN PREDICCIÓN ===
 def predecir(ciudad, fecha):
     try:
         df_input = pd.DataFrame({"ciudad": [ciudad], "fecha": [fecha]})
         df_pred = enriched_model.predict(df_input)
         if df_pred.empty or df_pred["prediction"].isna().all():
-            return " No hay datos para la ciudad o fecha indicada."
+            return " No existe datos de entrenamiento para la ciudad indicada"
         pred = int(df_pred["prediction"].values[0])
         prob = df_pred["probability"].values[0]
-        mensaje = "🌞 Buen momento para viajar" if pred == 1 else "🌧️ No es el mejor momento para viajar"
-        return f"{mensaje}\n(confianza: {prob:.2f})"
+        mensaje = "🧳 Buen momento para viajar 😊" if pred == 1 else "⚠️ No es el mejor momento para viajar"
+        return f"{mensaje}"
     except Exception as e:
         return f"❌ Error al predecir: {e}"
 
@@ -187,11 +157,11 @@ button:hover {
 """) as demo:
 
     # Asegúrate que el logo esté en la misma carpeta del script o usa ruta absoluta
-    gr.HTML("""
-    <div id="logo">
-        <img src="file=C:/Users/varga/Desktop/MasterBIGDATA_BCN/Aulas/Proyecto/TFM/TravelMind/TravelMind/WebApp/travelmind_logo.png" alt="TravelMind Logo" width="140" style="border-radius:16px;">
-    </div>
-    """)
+    #gr.HTML("""
+    #<div id="logo">
+    #    <img src="file=C:/Users/varga/Desktop/MasterBIGDATA_BCN/Aulas/Proyecto/TFM/TravelMind/TravelMind/WebApp/travelmind_logo.png" alt="TravelMind Logo" width="140" style="border-radius:16px;">
+    #</div>
+    #""")
     gr.HTML("<div id='title'>TravelMind – Recomendador de Destinos</div>")
     gr.HTML("<div id='desc'>Predice si es un buen momento para viajar según clima, aforo y percepción</div>")
 
