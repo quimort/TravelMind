@@ -1,0 +1,10 @@
+artifact_location: /content/drive/MyDrive/TravelMind/mlruns/903138913924932597/models/m-994e9937c0c047d79afe96fd35673198/artifacts
+creation_timestamp: 1761669381782
+experiment_id: '903138913924932597'
+last_updated_timestamp: 1761669387533
+model_id: m-994e9937c0c047d79afe96fd35673198
+model_type: null
+name: xgb_model
+source_run_id: ae7529f50099487cbf6b4a9d46a90a95
+status: 2
+status_message: null

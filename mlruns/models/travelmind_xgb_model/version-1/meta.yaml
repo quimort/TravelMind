@@ -1,0 +1,15 @@
+creation_timestamp: 1761669387712
+current_stage: None
+deployment_job_state: null
+description: null
+last_updated_timestamp: 1761669387712
+model_id: m-994e9937c0c047d79afe96fd35673198
+name: travelmind_xgb_model
+run_id: ae7529f50099487cbf6b4a9d46a90a95
+run_link: null
+source: models:/m-994e9937c0c047d79afe96fd35673198
+status: READY
+status_message: null
+storage_location: /content/drive/MyDrive/TravelMind/mlruns/903138913924932597/models/m-994e9937c0c047d79afe96fd35673198/artifacts
+user_id: null
+version: 1

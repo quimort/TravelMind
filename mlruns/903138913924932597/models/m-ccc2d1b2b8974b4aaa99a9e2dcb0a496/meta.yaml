@@ -1,0 +1,10 @@
+artifact_location: /content/drive/MyDrive/TravelMind/mlruns/903138913924932597/models/m-ccc2d1b2b8974b4aaa99a9e2dcb0a496/artifacts
+creation_timestamp: 1761669388417
+experiment_id: '903138913924932597'
+last_updated_timestamp: 1761669395018
+model_id: m-ccc2d1b2b8974b4aaa99a9e2dcb0a496
+model_type: null
+name: travelmind_enriched_model
+source_run_id: 0b394396b3dd4ed6b57d94c18440de49
+status: 2
+status_message: null

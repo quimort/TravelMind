@@ -1,0 +1,14 @@
+artifact_uri: /content/drive/MyDrive/TravelMind/mlruns/903138913924932597/ae7529f50099487cbf6b4a9d46a90a95/artifacts
+end_time: 1761669388081
+entry_point_name: ''
+experiment_id: '903138913924932597'
+lifecycle_stage: active
+run_id: ae7529f50099487cbf6b4a9d46a90a95
+run_name: worried-ant-489
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761668474030
+status: 3
+tags: []
+user_id: root
