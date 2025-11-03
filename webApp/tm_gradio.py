@@ -162,7 +162,7 @@ def ajustar_probabilidad(ciudad, fecha, prob_model):
 
     pred = 1 if prob_adjusted > threshold else 0
     # === Log interno (debug) ===
-    print(f"[DEBUG] Ciudad: {ciudad}, Prob modelo: {prob_model:.3f}, Ajustada: {prob_adjusted:.3f}, Umbral: {threshold:.2f}, Pred: {pred}")
+    #print(f"[DEBUG] Ciudad: {ciudad}, Prob modelo: {prob_model:.3f}, Ajustada: {prob_adjusted:.3f}, Umbral: {threshold:.2f}, Pred: {pred}")
     return prob_adjusted, pred
 
 # Cargar modelo enriquecido
@@ -226,7 +226,7 @@ def predecir(ciudad, fecha):
 
         # === Predicción final ===
         pred = int(prob >= umbral)
-        print(f"[DEBUG] Ciudad: {ciudad}, Prob ajustada: {prob:.3f}, Umbral: {umbral}, Pred: {pred}")
+        #print(f"[DEBUG] Ciudad: {ciudad}, Prob ajustada: {prob:.3f}, Umbral: {umbral}, Pred: {pred}")
 
         if pred == 1:
             return f"✅ Es un buen momento para viajar a {ciudad} ({prob:.1%} de probabilidad favorable)"
@@ -314,4 +314,4 @@ button:hover {
     
 if __name__ == "__main__":
     print("\nIniciando Gradio...")
-    demo.launch(share=True)#share=True para compartir online
+    demo.launch(share=False)#share=True para compartir online
