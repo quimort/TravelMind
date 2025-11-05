@@ -175,7 +175,7 @@ print("\nModelo Enriquecido cargado")
 # === FUNCIÓN DE PREDICCIÓN PRINCIPAL ===
 def predecir(ciudad, fecha):
     try:
-        print(f"[DEBUG] Ciudad: {ciudad}, Fecha: {fecha}")
+        print(f"[Iteracion] Ciudad: {ciudad}, Fecha: {fecha}")
         X_input = enriched_model.enrich_data(ciudad, fecha)
         if X_input is None or X_input.empty:
             return "❌ Datos insuficientes para esa ciudad o fecha."
@@ -314,4 +314,4 @@ button:hover {
     
 if __name__ == "__main__":
     print("\nIniciando Gradio...")
-    demo.launch(share=False)#share=True para compartir online
+    demo.launch(share=True)#share=True para compartir online
