@@ -314,4 +314,4 @@ button:hover {
     
 if __name__ == "__main__":
     print("\nIniciando Gradio...")
-    demo.launch(share=False)#share=True para compartir online
+    demo.launch(share=False)
